@@ -1,5 +1,9 @@
+// src/components/DocumentsTable.tsx
 import { useState } from "react";
-import { FileText, MoreVertical, Download, Share2, Trash2, Eye, Lock } from "lucide-react";
+import { 
+  FileText, MoreVertical, Download, 
+  Pencil, Users, Trash2 
+} from "lucide-react";
 import { Button } from "./ui/button";
 import {
   Table,
@@ -16,7 +20,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { Badge } from "./ui/badge";
 import { PermissionsDialog } from "./PermissionsDialog";
 
 export interface Document {
@@ -26,32 +29,44 @@ export interface Document {
   size: string;
   uploadedBy: string;
   uploadedAt: string;
-  category: string;
-  accessLevel: "public" | "private" | "restricted";
-  sharedWith: number;
 }
 
 interface DocumentsTableProps {
   documents: Document[];
   onDelete: (id: string) => void;
   onDownload: (id: string) => void;
+  currentUser: { name: string; role: string };
+  onEditInfo: (doc: Document) => void; 
 }
 
-export function DocumentsTable({ documents, onDelete, onDownload }: DocumentsTableProps) {
+export function DocumentsTable({ documents, onDelete, onDownload, currentUser, onEditInfo }: DocumentsTableProps) {
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
+  
+  // Logic kiểm tra quyền: Owner, Admin, hoặc Manager có quyền cao
+  const checkPermission = (doc: Document, permission: 'view' | 'delete' | 'share'): boolean => {
+      // Logic mặc định: Giả định nếu tài liệu hiển thị, người dùng có quyền View (Đọc/Tải xuống)
+      if (permission === 'view') {
+          return true; // Luôn cho phép Xem/Tải xuống nếu tài liệu có trong danh sách
+      }
+      
+      const userRole = currentUser.role.toLowerCase(); 
 
-  const getAccessBadge = (level: string) => {
-    switch (level) {
-      case "public":
-        return <Badge variant="secondary">Công khai</Badge>;
-      case "private":
-        return <Badge variant="outline">Riêng tư</Badge>;
-      case "restricted":
-        return <Badge variant="destructive">Hạn chế</Badge>;
-      default:
-        return <Badge>{level}</Badge>;
-    }
+      const isOwner = doc.uploadedBy === currentUser.name;
+      
+      // Admin, Owner, VÀ Manager có quyền cao cho delete/share
+      const isManagerOrHigher = userRole === "owner" || userRole === "admin" || userRole === "manager"; 
+
+      if (isOwner) return true; // Owner có tất cả quyền
+
+      switch (permission) {
+          case 'delete':
+          case 'share':
+              // Owner, Admin, VÀ Manager có quyền delete/share
+              return isManagerOrHigher; 
+          default:
+              return false;
+      }
   };
 
   const getFileIcon = (type: string) => {
@@ -61,6 +76,12 @@ export function DocumentsTable({ documents, onDelete, onDownload }: DocumentsTab
   const handlePermissionsClick = (doc: Document) => {
     setSelectedDoc(doc);
     setPermissionsOpen(true);
+  };
+  
+  // Kept placeholder function to avoid errors elsewhere, but it's not used now.
+  const handleEditInfoClick = (doc: Document) => {
+    onEditInfo(doc); 
+    console.log("Editing information for document:", doc.name);
   };
 
   return (
@@ -74,14 +95,13 @@ export function DocumentsTable({ documents, onDelete, onDownload }: DocumentsTab
               <TableHead>Kích thước</TableHead>
               <TableHead>Người tải lên</TableHead>
               <TableHead>Ngày tải lên</TableHead>
-              <TableHead>Quyền truy cập</TableHead>
               <TableHead className="w-[80px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {documents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={6} className="text-center py-8">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <FileText className="h-12 w-12" />
                     <p>Chưa có tài liệu nào</p>
@@ -103,16 +123,7 @@ export function DocumentsTable({ documents, onDelete, onDownload }: DocumentsTab
                   <TableCell>{doc.size}</TableCell>
                   <TableCell>{doc.uploadedBy}</TableCell>
                   <TableCell>{doc.uploadedAt}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getAccessBadge(doc.accessLevel)}
-                      {doc.sharedWith > 0 && (
-                        <span className="text-muted-foreground">
-                          +{doc.sharedWith}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
+                  
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -121,30 +132,43 @@ export function DocumentsTable({ documents, onDelete, onDownload }: DocumentsTab
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Xem
-                        </DropdownMenuItem>
+                        
+                        {/* Xem */}
                         <DropdownMenuItem onClick={() => onDownload(doc.id)}>
                           <Download className="mr-2 h-4 w-4" />
-                          Tải xuống
+                          Xem
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handlePermissionsClick(doc)}>
-                          <Lock className="mr-2 h-4 w-4" />
-                          Phân quyền
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Share2 className="mr-2 h-4 w-4" />
-                          Chia sẻ
-                        </DropdownMenuItem>
+                        
+                        {/* Phân quyền (Chỉ Owner/Admin/Manager) */}
+                        {checkPermission(doc, 'share') ? (
+                            <DropdownMenuItem onClick={() => handlePermissionsClick(doc)}>
+                              <Users className="mr-2 h-4 w-4" />
+                              Phân quyền
+                            </DropdownMenuItem>
+                        ) : (
+                            <DropdownMenuItem disabled>
+                              <Users className="mr-2 h-4 w-4" />
+                              Phân quyền
+                            </DropdownMenuItem>
+                        )}
+
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="text-destructive"
-                          onClick={() => onDelete(doc.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Xóa
-                        </DropdownMenuItem>
+                        
+                        {/* Xóa (Chỉ Owner/Admin/Manager) */}
+                        {checkPermission(doc, 'delete') ? (
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => onDelete(doc.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Xóa
+                            </DropdownMenuItem>
+                        ) : (
+                            <DropdownMenuItem disabled>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Xóa
+                            </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -160,6 +184,7 @@ export function DocumentsTable({ documents, onDelete, onDownload }: DocumentsTab
           open={permissionsOpen}
           onOpenChange={setPermissionsOpen}
           document={selectedDoc}
+          currentUserRole={currentUser.role.toLowerCase() as any}
         />
       )}
     </>

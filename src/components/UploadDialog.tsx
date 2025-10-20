@@ -1,3 +1,4 @@
+// Content of src/components/UploadDialog.tsx
 import { useState } from "react";
 import { Upload, X, File } from "lucide-react";
 import {
@@ -11,14 +12,7 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
-import { Textarea } from "./ui/textarea";
+// Đã loại bỏ import Select liên quan đến Access Level
 
 interface UploadDialogProps {
   open: boolean;
@@ -28,8 +22,8 @@ interface UploadDialogProps {
 
 export function UploadDialog({ open, onOpenChange, onUpload }: UploadDialogProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [accessLevel, setAccessLevel] = useState("private");
-  const [description, setDescription] = useState("");
+  // Đã loại bỏ accessLevel state
+  const [documentName, setDocumentName] = useState(""); 
   const [dragActive, setDragActive] = useState(false);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -48,26 +42,33 @@ export function UploadDialog({ open, onOpenChange, onUpload }: UploadDialogProps
     setDragActive(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setSelectedFile(e.dataTransfer.files[0]);
+      const file = e.dataTransfer.files[0];
+      setSelectedFile(file);
+      if (!documentName) {
+        setDocumentName(file.name.substring(0, file.name.lastIndexOf('.')) || file.name);
+      }
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      if (!documentName) {
+        setDocumentName(file.name.substring(0, file.name.lastIndexOf('.')) || file.name);
+      }
     }
   };
 
   const handleUpload = () => {
-    if (selectedFile) {
+    if (selectedFile && documentName) {
       onUpload(selectedFile, {
-        accessLevel,
-        description,
+        // Đã loại bỏ accessLevel từ metadata
+        documentName, 
       });
       // Reset form
       setSelectedFile(null);
-      setAccessLevel("private");
-      setDescription("");
+      setDocumentName(""); 
       onOpenChange(false);
     }
   };
@@ -78,7 +79,7 @@ export function UploadDialog({ open, onOpenChange, onUpload }: UploadDialogProps
         <DialogHeader>
           <DialogTitle>Tải tài liệu lên</DialogTitle>
           <DialogDescription>
-            Tải tài liệu mới lên hệ thống và thiết lập quyền truy cập
+            Tải tài liệu mới lên hệ thống
           </DialogDescription>
         </DialogHeader>
 
@@ -136,40 +137,28 @@ export function UploadDialog({ open, onOpenChange, onUpload }: UploadDialogProps
               </div>
             )}
           </div>
-
-          {/* Access Level */}
+          
+          {/* Document Name Input */}
           <div className="space-y-2">
-            <Label htmlFor="access">Quyền truy cập</Label>
-            <Select value={accessLevel} onValueChange={setAccessLevel}>
-              <SelectTrigger id="access">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">Công khai - Tất cả nhân viên</SelectItem>
-                <SelectItem value="private">Riêng tư - Chỉ mình tôi</SelectItem>
-                <SelectItem value="restricted">Hạn chế - Người được chỉ định</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Mô tả (tùy chọn)</Label>
-            <Textarea
-              id="description"
-              placeholder="Nhập mô tả ngắn về tài liệu..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
+            <Label htmlFor="document-name">Tên tài liệu</Label>
+            <Input
+              id="document-name"
+              type="text"
+              placeholder="Nhập tên tài liệu..."
+              value={documentName}
+              onChange={(e) => setDocumentName(e.target.value)}
+              required
             />
           </div>
+
+          {/* Đã loại bỏ Access Level Section */}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Hủy
           </Button>
-          <Button onClick={handleUpload} disabled={!selectedFile}>
+          <Button onClick={handleUpload} disabled={!selectedFile || !documentName}>
             <Upload className="mr-2 h-4 w-4" />
             Tải lên
           </Button>

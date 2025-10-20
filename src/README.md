@@ -40,11 +40,11 @@ PTTKHTTT_He_thong_quan_ly_tai_lieu_noi_bo/
 │   ├── login/               # Trang đăng nhập
 │   └── information/         # Trang thông tin cá nhân
 ├── components/              # React components
-│   ├── alldocuments/        # Components cho trang tài liệu
-│   ├── trashbin/            # Components cho thùng rác
+│   ├── alldocuments/        # Components cho trang tài liệu         
 │   ├── login/               # Components cho đăng nhập
 │   ├── information/         # Components cho thông tin
 │   └── ui/                  # Shadcn UI components
+│ ──lib
 ├── styles/                  # CSS files
 │   └── globals.css          # Tailwind V4 global styles
 └── public/                  # Static assets
@@ -56,13 +56,12 @@ PTTKHTTT_He_thong_quan_ly_tai_lieu_noi_bo/
 - `/` - Trang chủ (redirect to /alldocuments)
 - `/login` - Đăng nhập
 - `/alldocuments` - Quản lý tất cả tài liệu
-- `/trashbin` - Thùng rác
 - `/information` - Thông tin cá nhân
 
 ## Tính năng
 
 ### Quản lý tài liệu
-- Upload tài liệu (PDF, Word, Excel, PowerPoint)
+- Upload tài liệu (PDF, Word, Excel, PowerPoint,...)
 - Xem danh sách tài liệu
 - Tìm kiếm tài liệu
 - Sắp xếp tài liệu (mới nhất, cũ nhất, tên, kích thước)
@@ -73,12 +72,7 @@ PTTKHTTT_He_thong_quan_ly_tai_lieu_noi_bo/
 - Phân quyền truy cập: Công khai, Riêng tư, Hạn chế
 - Quản lý người dùng có quyền truy cập
 - Thêm/xóa quyền cho từng người dùng
-- Phân quyền xem/chỉnh sửa
-
-### Thùng rác
-- Xem tài liệu đã xóa
-- Khôi phục tài liệu
-- Xóa vĩnh viễn
+- Phân quyền xem
 
 ### Thông tin cá nhân
 - Xem thông tin tài khoản
@@ -95,7 +89,7 @@ PTTKHTTT_He_thong_quan_ly_tai_lieu_noi_bo/
 
 Để tích hợp với Express.js và MySQL backend:
 
-1. Tạo API routes trong `/app/api/`
+1. Tạo API routes trong `/lib/api/`
 2. Cấu hình kết nối database
 3. Thay thế mock data bằng API calls
 4. Implement authentication và authorization

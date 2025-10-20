@@ -1,3 +1,4 @@
+// src/components/PermissionsDialog.tsx
 import { useState } from "react";
 import { Search, X, UserPlus, Shield } from "lucide-react";
 import {
@@ -26,17 +27,23 @@ interface PermissionsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   document: Document;
+  // NOTE: Sử dụng vai trò người dùng hiện tại để kiểm tra quyền
+  currentUserRole?: "viewer" | "owner" | "admin" | "manager";
 }
 
 interface UserPermission {
   id: string;
   name: string;
   email: string;
-  role: "viewer" | "editor" | "owner";
+  // UPDATED: Removed 'editor' role.
+  role: "viewer" | "owner" | "admin" | "manager"; 
   department: string;
 }
 
-export function PermissionsDialog({ open, onOpenChange, document }: PermissionsDialogProps) {
+// Giả định vai trò người dùng hiện tại là 'admin' để minh họa logic
+const FAKE_CURRENT_USER_ROLE: UserPermission["role"] = "admin"; 
+
+export function PermissionsDialog({ open, onOpenChange, document, currentUserRole = FAKE_CURRENT_USER_ROLE }: PermissionsDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [permissions, setPermissions] = useState<UserPermission[]>([
     {
@@ -47,10 +54,24 @@ export function PermissionsDialog({ open, onOpenChange, document }: PermissionsD
       department: "Công nghệ"
     },
     {
+      id: "admin-404", 
+      name: "Trần Văn Quản Trị",
+      email: "admin@company.com",
+      role: "admin",
+      department: "Quản lý"
+    },
+    {
+      id: "manager-500", 
+      name: "Lý Văn Quản Lý",
+      email: "manager@company.com",
+      role: "manager", // Vai trò Manager
+      department: "Điều hành"
+    },
+    {
       id: "2",
       name: "Trần Thị B",
       email: "tranthib@company.com",
-      role: "editor",
+      role: "viewer", // UPDATED: Changed from 'editor' to 'viewer'
       department: "Marketing"
     },
     {
@@ -68,29 +89,92 @@ export function PermissionsDialog({ open, onOpenChange, document }: PermissionsD
   ];
 
   const handleRoleChange = (userId: string, newRole: string) => {
+    // Chỉ Owner và Admin mới được thăng cấp lên Manager
+    const canPromoteDemote = currentUserRole === "owner" || currentUserRole === "admin";
+    const currentRole = permissions.find(p => p.id === userId)?.role;
+
+    // Logic hạn chế: Manager chỉ có thể phân quyền giữa Viewer (User)
+    const isCurrentUserManager = currentUserRole === 'manager';
+    const isTargetUserManagerOrHigher = currentRole === 'manager' || currentRole === 'admin' || currentRole === 'owner';
+    
+    // Nếu người dùng hiện tại là Manager và đang cố gắng thay đổi quyền của Manager/Admin/Owner, ngăn chặn
+    if (isCurrentUserManager && isTargetUserManagerOrHigher) {
+        console.warn("Permission denied: Manager không thể thay đổi vai trò của Manager/Admin/Owner.");
+        return;
+    }
+    
+    // Giữ logic thăng cấp/giáng cấp Admin/Owner
+    if (newRole === "manager") { 
+      if (!canPromoteDemote) {
+         console.warn("Permission denied: Chỉ Chủ sở hữu hoặc Admin mới có thể thăng cấp.");
+         return;
+      }
+    }
+
+    // Chỉ Owner và Admin mới được giáng cấp Manager (xuống viewer)
+    if (currentRole === "manager" && newRole !== "manager") {
+       if (!canPromoteDemote) {
+           console.warn("Permission denied: Chỉ Chủ sở hữu hoặc Admin mới có thể giáng cấp Manager.");
+           return;
+       }
+    }
+
     setPermissions(permissions.map(p => 
       p.id === userId ? { ...p, role: newRole as any } : p
     ));
   };
 
   const handleRemoveUser = (userId: string) => {
+    const canPromoteDemote = currentUserRole === "owner" || currentUserRole === "admin";
+    const targetUser = permissions.find(p => p.id === userId);
+    
+    // Ngăn Manager bị xóa bởi người dùng cấp thấp hơn
+    if (targetUser?.role === "manager" && !canPromoteDemote) {
+        console.warn("Permission denied: Chỉ Chủ sở hữu hoặc Admin mới có thể xóa Manager.");
+        return;
+    }
+
+    // Manager không được xóa Admin/Owner
+    if (currentUserRole === 'manager' && (targetUser?.role === 'owner' || targetUser?.role === 'admin')) {
+         console.warn("Permission denied: Manager không thể xóa Admin/Owner.");
+         return;
+    }
+    
     setPermissions(permissions.filter(p => p.id !== userId));
   };
-
+  
   const handleAddUser = (user: typeof availableUsers[0]) => {
     setPermissions([...permissions, { ...user, role: "viewer" }]);
   };
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadge = (role: UserPermission["role"]) => {
     switch (role) {
       case "owner":
         return <Badge>Chủ sở hữu</Badge>;
-      case "editor":
-        return <Badge variant="secondary">Chỉnh sửa</Badge>;
+      case "admin":
+        return <Badge variant="destructive">Admin</Badge>;
+      case "manager":
+        return <Badge variant="secondary" className="bg-yellow-600 hover:bg-yellow-600/80 text-white">Quản lý</Badge>; 
       case "viewer":
-        return <Badge variant="outline">Xem</Badge>;
+        return <Badge variant="outline">Người dùng</Badge>; 
       default:
         return <Badge>{role}</Badge>;
+    }
+  };
+  
+  // Hàm trợ giúp để xác định văn bản hiển thị trong SelectTrigger
+  const getSelectTriggerValue = (role: UserPermission["role"]) => {
+    switch (role) {
+      case "admin":
+        return "Admin";
+      case "owner":
+        return "Chủ sở hữu";
+      case "manager":
+        return "Manager";
+      case "viewer":
+        return "Xem"; 
+      default:
+        return "";
     }
   };
 
@@ -109,6 +193,7 @@ export function PermissionsDialog({ open, onOpenChange, document }: PermissionsD
      user.email.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px]">
@@ -120,45 +205,7 @@ export function PermissionsDialog({ open, onOpenChange, document }: PermissionsD
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* General Access */}
-          <div className="space-y-2">
-            <Label>Quyền truy cập chung</Label>
-            <Select defaultValue={document.accessLevel}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    <div>
-                      <div>Công khai</div>
-                      <div className="text-muted-foreground">Tất cả nhân viên có thể xem</div>
-                    </div>
-                  </div>
-                </SelectItem>
-                <SelectItem value="private">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    <div>
-                      <div>Riêng tư</div>
-                      <div className="text-muted-foreground">Chỉ người được chỉ định</div>
-                    </div>
-                  </div>
-                </SelectItem>
-                <SelectItem value="restricted">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    <div>
-                      <div>Hạn chế</div>
-                      <div className="text-muted-foreground">Cần phê duyệt để truy cập</div>
-                    </div>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
+          
           {/* Add User Search */}
           <div className="space-y-2">
             <Label>Thêm người dùng</Label>
@@ -202,52 +249,118 @@ export function PermissionsDialog({ open, onOpenChange, document }: PermissionsD
           <div className="space-y-2">
             <Label>Người dùng có quyền truy cập ({permissions.length})</Label>
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {permissions.map(user => (
-                <div
-                  key={user.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span>{user.name}</span>
-                        {user.role === "owner" && getRoleBadge(user.role)}
-                      </div>
-                      <div className="text-muted-foreground">
-                        {user.email} • {user.department}
+              {permissions.map(user => {
+                const isCurrentUserOwner = currentUserRole === "owner";
+                const canPromoteDemote = currentUserRole === "owner" || currentUserRole === "admin";
+                const isCurrentUserManager = currentUserRole === 'manager';
+                
+                const isOwner = user.role === "owner";
+                const isAdmin = user.role === "admin";
+                const isManager = user.role === "manager";
+                const isUser = user.role === "viewer";
+                
+                // Target roles
+                const isTargetTopTier = isOwner || isAdmin;
+                const isTargetMidTierOrHigher = isTargetTopTier || isManager;
+                
+                // Visibility Logic
+                // HIDE controls if target is Admin/Owner (vì quyền của họ không nên bị thay đổi qua UI này)
+                const shouldHideControls = isTargetTopTier;
+                
+                // Ẩn dropdown và nút xóa nếu người dùng hiện tại là Manager và đang xem Manager khác
+                const shouldHideControlsForManager = isCurrentUserManager && isManager;
+
+                // Nút xóa:
+                const canRemoveTargetByAdminOwner = canPromoteDemote && !isOwner;
+                const canRemoveTargetByManager = isCurrentUserManager && isUser;
+                const canRemove = isCurrentUserOwner || canRemoveTargetByAdminOwner || canRemoveTargetByManager;
+
+
+                const roleDisplay = getRoleBadge(user.role);
+
+                // Hiển thị dropdown/controls nếu target KHÔNG PHẢI Owner/Admin VÀ (target không phải Manager HOẶC current user là Admin/Owner)
+                const shouldShowDropdownAndControls = !isTargetTopTier && !(isCurrentUserManager && isManager);
+
+
+                return (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span>{user.name}</span>
+                          {roleDisplay}
+                        </div>
+                        <div className="text-muted-foreground">
+                          {user.email} • {user.department}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
+                      
+                      {/* Hiển thị DROPDOWN VÀ NÚT XÓA */}
+                      {shouldShowDropdownAndControls ? ( 
+                        <>
+                          <Select
+                            value={user.role}
+                            onValueChange={(value) => handleRoleChange(user.id, value)}
+                            // Nếu user là Manager, chỉ Owner/Admin mới được thay đổi vai trò của họ
+                            disabled={isManager && !canPromoteDemote} 
+                          >
+                            <SelectTrigger className="w-[120px]"> {/* Giảm chiều rộng để trông giống User hơn */}
+                              {/* Hiển thị giá trị hiện tại */}
+                              <SelectValue placeholder={getSelectTriggerValue(user.role)} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              
+                              {/* Hiển thị "Manager" để Thăng cấp User lên (hoặc nếu Manager hiện tại đang xem) */}
+                              {isUser && (
+                                <SelectItem 
+                                  value="manager"
+                                  disabled={!canPromoteDemote} // Chỉ Admin/Owner được thăng cấp
+                                >
+                                  Manager
+                                </SelectItem>
+                              )}
+
+                              {/* Giữ lại tùy chọn Xem (Viewer) cho cả Manager và User */}
+                              <SelectItem value="viewer">Xem</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          {/* Nút xóa/hủy quyền */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveUser(user.id)}
+                            disabled={!canRemove} 
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        // Trường hợp HIDE: Chỉ hiển thị nút xóa/hủy quyền nếu có quyền xóa người dùng cấp cao
+                        isTargetMidTierOrHigher && canPromoteDemote && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveUser(user.id)}
+                            // Chỉ Owner/Admin mới được xóa Admin/Owner/Manager khác
+                            disabled={!canRemoveTargetByAdminOwner} 
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                      )
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {user.role !== "owner" && (
-                      <>
-                        <Select
-                          value={user.role}
-                          onValueChange={(value) => handleRoleChange(user.id, value)}
-                        >
-                          <SelectTrigger className="w-[130px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="viewer">Xem</SelectItem>
-                            <SelectItem value="editor">Chỉnh sửa</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveUser(user.id)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

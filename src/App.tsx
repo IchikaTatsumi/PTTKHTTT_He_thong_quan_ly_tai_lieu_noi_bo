@@ -1,10 +1,11 @@
+// Content of src/App.tsx
+import * as React from "react"; 
 import { useState } from "react";
 import {
   FileText,
   Upload,
   Search,
   FolderOpen,
-  Trash2,
   ChevronDown,
   UserCircle,
   LogOut,
@@ -15,14 +16,12 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
   SidebarInset,
   SidebarHeader,
-  SidebarFooter,
 } from "./components/ui/sidebar";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -43,11 +42,10 @@ import {
 } from "./components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "./components/ui/avatar";
 import { DocumentsTable, Document } from "./components/DocumentsTable";
-import { TrashTable } from "./components/TrashTable";
 import { UploadDialog } from "./components/UploadDialog";
 import { Badge } from "./components/ui/badge";
 
-// Mock data
+// Mock data (FIXED: Loại bỏ category, accessLevel, sharedWith)
 const mockDocuments: Document[] = [
   {
     id: "1",
@@ -56,9 +54,6 @@ const mockDocuments: Document[] = [
     size: "2.4 MB",
     uploadedBy: "Nguyễn Văn A",
     uploadedAt: "15/03/2024",
-    category: "Nhân sự",
-    accessLevel: "public",
-    sharedWith: 24,
   },
   {
     id: "2",
@@ -67,9 +62,6 @@ const mockDocuments: Document[] = [
     size: "1.2 MB",
     uploadedBy: "Trần Thị B",
     uploadedAt: "10/03/2024",
-    category: "Tài chính",
-    accessLevel: "restricted",
-    sharedWith: 5,
   },
   {
     id: "3",
@@ -78,9 +70,6 @@ const mockDocuments: Document[] = [
     size: "5.8 MB",
     uploadedBy: "Lê Văn C",
     uploadedAt: "08/03/2024",
-    category: "Marketing",
-    accessLevel: "private",
-    sharedWith: 0,
   },
   {
     id: "4",
@@ -89,9 +78,6 @@ const mockDocuments: Document[] = [
     size: "856 KB",
     uploadedBy: "Phạm Thị D",
     uploadedAt: "05/03/2024",
-    category: "Pháp lý",
-    accessLevel: "restricted",
-    sharedWith: 3,
   },
   {
     id: "5",
@@ -100,70 +86,53 @@ const mockDocuments: Document[] = [
     size: "3.2 MB",
     uploadedBy: "Hoàng Văn E",
     uploadedAt: "01/03/2024",
-    category: "Nhân sự",
-    accessLevel: "public",
-    sharedWith: 45,
   },
 ];
 
 const navigationItems = [
   { title: "Tất cả tài liệu", icon: FileText, url: "#" },
-  { title: "Thùng rác", icon: Trash2, url: "#" },
 ];
 
 export default function App() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [documents, setDocuments] = useState(mockDocuments);
-  const [trashedDocuments, setTrashedDocuments] = useState<Document[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentView, setCurrentView] = useState("Tất cả tài liệu");
   const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [currentUser, setCurrentUser] = useState({
+  const [currentUser] = useState({
     name: "Nguyễn Văn A",
     email: "nguyenvana@company.com",
     role: "Admin",
   });
 
-  const handleUpload = (file: File, metadata: any) => {
+  // FIXED: Loại bỏ các trường không tồn tại và khai báo kiểu dữ liệu file: File
+  const handleUpload = (file: File, metadata: { documentName: string }) => {
     // Mock upload - in real app, this would call your API
     const newDoc: Document = {
       id: Date.now().toString(),
-      name: file.name,
-      type: file.type.split("/")[1].toUpperCase(),
+      name: metadata.documentName, // Lấy tên từ metadata
+      type: file.name.split('.').pop()?.toUpperCase() || "FILE",
       size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
       uploadedBy: "Bạn",
       uploadedAt: new Date().toLocaleDateString("vi-VN"),
-      category: "Tài liệu",
-      accessLevel: metadata.accessLevel,
-      sharedWith: 0,
     };
     setDocuments([newDoc, ...documents]);
   };
 
   const handleDelete = (id: string) => {
-    const docToDelete = documents.find(doc => doc.id === id);
-    if (docToDelete) {
-      setDocuments(documents.filter(doc => doc.id !== id));
-      setTrashedDocuments([...trashedDocuments, docToDelete]);
-    }
-  };
-
-  const handleRestore = (id: string) => {
-    const docToRestore = trashedDocuments.find(doc => doc.id === id);
-    if (docToRestore) {
-      setTrashedDocuments(trashedDocuments.filter(doc => doc.id !== id));
-      setDocuments([...documents, docToRestore]);
-    }
-  };
-
-  const handleDeletePermanently = (id: string) => {
-    setTrashedDocuments(trashedDocuments.filter(doc => doc.id !== id));
+    // Permanent delete
+    setDocuments(documents.filter(doc => doc.id !== id));
   };
 
   const handleDownload = (id: string) => {
     // Mock download
     console.log("Downloading document:", id);
   };
+  
+  // ADDED: Placeholder for Edit Info
+  const handleEditInfo = (doc: Document) => {
+    alert(`[PLACEHOLDER] Chỉnh sửa thông tin tài liệu: ${doc.name}`);
+  }
 
   const handleLogout = () => {
     setIsLoggedIn(false);
@@ -174,19 +143,13 @@ export default function App() {
     setIsLoggedIn(true);
   };
 
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         doc.category.toLowerCase().includes(searchQuery.toLowerCase());
+  // FIXED: Khai báo kiểu cho doc: Document và chỉ lọc theo tên (vì category đã bị loại bỏ)
+  const filteredDocuments = documents.filter((doc: Document) => {
+    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
 
-  const filteredTrash = trashedDocuments.filter(doc => {
-    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         doc.category.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
-
-  const displayCount = currentView === "Thùng rác" ? filteredTrash.length : filteredDocuments.length;
+  const displayCount = filteredDocuments.length; // Simplified to only documents count
 
   return (
     <SidebarProvider>
@@ -278,11 +241,6 @@ export default function App() {
                             {documents.length}
                           </Badge>
                         )}
-                        {item.title === "Thùng rác" && trashedDocuments.length > 0 && (
-                          <Badge variant="secondary" className="ml-auto">
-                            {trashedDocuments.length}
-                          </Badge>
-                        )}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
@@ -303,15 +261,13 @@ export default function App() {
                 {displayCount} tài liệu
               </p>
             </div>
-            {currentView !== "Thùng rác" && (
-              <Button onClick={() => setUploadOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" />
-                Tải lên
-              </Button>
-            )}
+            <Button onClick={() => setUploadOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Tải lên
+            </Button>
           </header>
 
-          {/* Search and Filters */}
+          {/* Search and Filters (unchanged) */}
           <div className="flex items-center gap-4 border-b px-6 py-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -335,21 +291,15 @@ export default function App() {
             </Select>
           </div>
 
-          {/* Main Content */}
+          {/* Main Content (Simplified) */}
           <main className="flex-1 overflow-auto p-6">
-            {currentView === "Thùng rác" ? (
-              <TrashTable
-                documents={filteredTrash}
-                onRestore={handleRestore}
-                onDeletePermanently={handleDeletePermanently}
-              />
-            ) : (
-              <DocumentsTable
-                documents={filteredDocuments}
-                onDelete={handleDelete}
-                onDownload={handleDownload}
-              />
-            )}
+            <DocumentsTable
+              documents={filteredDocuments}
+              onDelete={handleDelete}
+              onDownload={handleDownload}
+              currentUser={currentUser} // Truyền thông tin người dùng
+              onEditInfo={handleEditInfo} // Truyền hàm xử lý chỉnh sửa
+            />
           </main>
         </SidebarInset>
         </div>

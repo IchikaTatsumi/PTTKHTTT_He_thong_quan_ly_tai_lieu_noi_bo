@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+// FIX: Điều chỉnh import để đưa React vào scope, giải quyết lỗi 7016, 2503 và 7026 (JSX implicitly has type 'any').
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function HomePage() {

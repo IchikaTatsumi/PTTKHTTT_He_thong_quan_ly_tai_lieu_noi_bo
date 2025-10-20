@@ -1,7 +1,9 @@
+// src/components/login/LoginUI.tsx
 "use client";
 
 import { useState } from "react";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+// UPDATED IMPORTS: Use the new local UI components
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -23,7 +25,7 @@ export default function LoginUI() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberPassword, setRememberPassword] = useState(false);
+  const [rememberPassword, setRememberPassword] = useState<boolean | "indeterminate">(false);
   const [dialogState, setDialogState] = useState<DialogState>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -96,7 +98,8 @@ export default function LoginUI() {
             <Checkbox 
               id="remember" 
               checked={rememberPassword}
-              onCheckedChange={(checked) => setRememberPassword(checked as boolean)}
+              // Checkbox value is typically boolean or 'indeterminate'
+              onCheckedChange={(checked) => setRememberPassword(checked)} 
             />
             <label
               htmlFor="remember"
