@@ -1,19 +1,6 @@
+// src/lib/api/DocumentsController.ts
 import { fetchApi, Document } from '../../lib/utils';
-
-function getAuthToken(): string | null {
-  // Try to read token from cookie named "token"
-  if (typeof document !== 'undefined') {
-    const match = document.cookie.match(new RegExp('(^|;)\\s*token\\s*=\\s*([^;]+)'));
-    if (match) return decodeURIComponent(match[2]);
-    try {
-      const ls = window.localStorage.getItem('token');
-      if (ls) return ls;
-    } catch (e) {
-      // ignore localStorage errors (e.g. blocked)
-    }
-  }
-  return null;
-}
+import { getAuthToken } from '../../lib/cookie/cookie'; // <--- ĐÃ SỬA: Import hàm getAuthToken chuẩn
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
 

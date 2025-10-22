@@ -318,18 +318,26 @@ export function PermissionsDialog({ open, onOpenChange, document, currentUserRol
                             </SelectTrigger>
                             <SelectContent>
                               
-                              {/* Hiển thị "Manager" để Thăng cấp User lên (hoặc nếu Manager hiện tại đang xem) */}
-                              {isUser && (
-                                <SelectItem 
-                                  value="manager"
-                                  disabled={!canPromoteDemote} // Chỉ Admin/Owner được thăng cấp
+                              {/* Logic đã được sửa: */}
+                              {/* Cho phép chọn Manager nếu: (Mục tiêu là Viewer VÀ có quyền thăng cấp) HOẶC Mục tiêu đã là Manager */}
+                              {(isUser && canPromoteDemote) || isManager ? (
+                                <SelectItem
+                                    value="manager"
+                                    // Vô hiệu hóa nút nếu đang thăng cấp Viewer mà không có quyền
+                                    disabled={isUser && !canPromoteDemote} 
                                 >
-                                  Manager
+                                    Manager
                                 </SelectItem>
-                              )}
+                              ) : null}
 
-                              {/* Giữ lại tùy chọn Xem (Viewer) cho cả Manager và User */}
-                              <SelectItem value="viewer">Xem</SelectItem>
+                              {/* Luôn hiển thị Xem, nhưng vô hiệu hóa nếu mục tiêu là Manager và không có quyền giáng cấp (chỉ Owner/Admin có quyền) */}
+                              <SelectItem 
+                                  value="viewer"
+                                  disabled={isManager && !canPromoteDemote} 
+                              >
+                                  Xem
+                              </SelectItem>
+
                             </SelectContent>
                           </Select>
                           

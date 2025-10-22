@@ -1,4 +1,4 @@
-// src/components/ui/dialog.tsx (based on ui/dialog.jsx)
+// src/components/ui/dialog.tsx (Đã Sửa)
 "use client";
 
 import * as React from "react";
@@ -79,6 +79,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
+    // Đã sửa để chỉ truyền className và props
     className={cn("text-lg font-semibold leading-none tracking-tight", className)}
     {...props}
   />
@@ -91,6 +92,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
+    // Đã sửa để chỉ truyền className và props
     className={cn("text-sm text-muted-foreground", className)}
     {...props}
   />

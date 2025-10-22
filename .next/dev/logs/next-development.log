@@ -1,0 +1,7 @@
+[00:00:01.000] Server  LOG      ✓ Ready in 657ms
+[00:00:04.584] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:06.455] Browser ERROR   uncaughtError: TypeError: (0 , __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__.DialogTitle) is not a function
+[00:01:03.211] Server  WARN     ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:01:03.227] Server  LOG      ✓ Compiled in 19ms
+[00:01:03.617] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:01:10.266] Server  LOG      ✓ Compiled in 14ms

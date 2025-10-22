@@ -1,4 +1,5 @@
-// src/components/ui/alert-dialog.tsx (Adapted to new Dialog/Button structure)
+// src/components/ui/alert-dialog.tsx
+
 "use client";
 
 import * as React from "react";
@@ -7,24 +8,37 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { cn } from "./utils";
 import { buttonVariants } from "./button";
 import {
-  DialogPortal,
-  DialogOverlay,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription,
+  // Đã sửa cách Import: Chỉ import các component Header/Footer (là div)
+  DialogHeader as BaseDialogHeader,
+  DialogFooter as BaseDialogFooter,
+  // Không import DialogTitle và DialogDescription vì chúng là components
 } from "./dialog"; 
 
 const AlertDialog = AlertDialogPrimitive.Root;
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 
-// Sửa đổi AlertDialogContent để sử dụng DialogOverlay từ Dialog.tsx
+// ... (AlertDialogOverlay và AlertDialogContent - KHÔNG ĐỔI)
+const AlertDialogOverlay = React.forwardRef<
+  React.ElementRef<typeof AlertDialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+  <AlertDialogPrimitive.Overlay
+    ref={ref}
+    className={cn(
+      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      className
+    )}
+    {...props}
+  />
+));
+AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
+
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Portal>
-    <DialogOverlay />
+    <AlertDialogOverlay /> 
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
@@ -37,11 +51,63 @@ const AlertDialogContent = React.forwardRef<
 ));
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName;
 
-const AlertDialogHeader = DialogHeader;
-const AlertDialogFooter = DialogFooter;
-const AlertDialogTitle = DialogTitle;
-const AlertDialogDescription = DialogDescription;
+// =================================================================
+// SỬA LỖI: Định nghĩa lại Title và Description bằng Primitives + Class Name
+// =================================================================
 
+const AlertDialogHeader = ({
+  className,
+  ...props
+}: React.ComponentProps<typeof BaseDialogHeader>) => (
+  <BaseDialogHeader // BaseDialogHeader vẫn là div, nên tái sử dụng được
+    className={className} 
+    {...props}
+  />
+);
+AlertDialogHeader.displayName = "AlertDialogHeader";
+
+const AlertDialogFooter = ({
+  className,
+  ...props
+}: React.ComponentProps<typeof BaseDialogFooter>) => (
+  <BaseDialogFooter // BaseDialogFooter vẫn là div, nên tái sử dụng được
+    className={className} 
+    {...props}
+  />
+);
+AlertDialogFooter.displayName = "AlertDialogFooter";
+
+
+// AlertDialogTitle phải bọc AlertDialogPrimitive.Title
+const AlertDialogTitle = React.forwardRef<
+  React.ElementRef<typeof AlertDialogPrimitive.Title>,
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Title>
+>(({ className, ...props }, ref) => (
+  <AlertDialogPrimitive.Title
+    ref={ref}
+    // Lớp CSS được lấy trực tiếp từ định nghĩa trong dialog.tsx
+    className={cn("text-lg font-semibold leading-none tracking-tight", className)} 
+    {...props}
+  />
+));
+AlertDialogTitle.displayName = AlertDialogPrimitive.Title.displayName;
+
+
+// AlertDialogDescription phải bọc AlertDialogPrimitive.Description
+const AlertDialogDescription = React.forwardRef<
+  React.ElementRef<typeof AlertDialogPrimitive.Description>,
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Description>
+>(({ className, ...props }, ref) => (
+  <AlertDialogPrimitive.Description
+    ref={ref}
+    // Lớp CSS được lấy trực tiếp từ định nghĩa trong dialog.tsx
+    className={cn("text-sm text-muted-foreground", className)}
+    {...props}
+  />
+));
+AlertDialogDescription.displayName = AlertDialogPrimitive.Description.displayName;
+
+// ... (AlertDialogAction và AlertDialogCancel - KHÔNG ĐỔI)
 const AlertDialogAction = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Action>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action>

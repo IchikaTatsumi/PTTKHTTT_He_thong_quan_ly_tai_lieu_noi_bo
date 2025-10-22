@@ -93,18 +93,71 @@ export const parseDate = (dateString: string): Date => {
   return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
 }
 
+/**
+ * Hàm chuyển đổi kích thước file thành số bytes để so sánh.
+ * Hỗ trợ các đơn vị KB, MB, GB.
+ */
+export const sizeToNumber = (size: string): number => {
+  if (!size) return 0;
+  const parts = size.trim().split(/\s+/);
+  const rawValue = parts[0]?.replace(',', '.');
+  const unit = (parts[1] || "").toUpperCase();
+  const value = parseFloat(rawValue) || 0;
 
-// Giả định kiểu dữ liệu cơ bản cho các controller khác
+  switch (unit) {
+    case "GB":
+      return value * 1024 * 1024 * 1024;
+    case "MB":
+    case "M":
+      return value * 1024 * 1024;
+    case "KB":
+    case "K":
+      return value * 1024;
+    default:
+      // Giả sử bytes nếu không có unit
+      return value;
+  }
+};
+
+// ======================= AUTH INTERFACES (RESTORED) =======================
 export interface UserProfileDTO {
   id: string;
   username: string;
-  role: 'admin' | 'user';
+  email: string;
+  role: 'admin' | 'manager' | 'user' | 'owner';
 }
 
 export interface LoginData {
   user: UserProfileDTO;
   token: string;
 }
+// ==========================================================================
+
+export interface Document {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
+export interface PermissionDTO {
+  id: string;
+  permissionLevel: number;
+}
+export interface UserProfileDTO {
+  id: string;
+  username: string;
+  email: string;
+  role: 'admin' | 'manager' | 'user' | 'owner';
+}
+
+export interface LoginData {
+  user: UserProfileDTO;
+  token: string;
+}
+// ==========================================================================
 
 export interface Document {
   id: string;

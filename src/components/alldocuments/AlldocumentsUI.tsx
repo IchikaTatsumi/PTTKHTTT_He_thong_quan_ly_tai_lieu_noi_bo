@@ -1,4 +1,4 @@
-// src/components/alldocuments/AlldocumentsUI.tsx
+// src/components/alldocuments/AlldocumentsUI.tsx (Bản cập nhật cuối cùng sau khi hợp nhất và sửa lỗi TS2339)
 "use client";
 
 import { useState, useMemo } from "react";
@@ -10,6 +10,7 @@ import {
   ChevronDown,
   UserCircle,
   LogOut,
+  LogIn,
 } from "lucide-react";
 import {
   Sidebar,
@@ -44,16 +45,21 @@ import { Avatar, AvatarFallback } from "../ui/avatar";
 import { DocumentsTable, Document } from "../DocumentsTable";
 import { UploadDialog } from "../UploadDialog";
 import { Badge } from "../ui/badge";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation"; // <--- ĐÃ SỬA: Thêm usePathname
+import { parseDate, sizeToNumber } from "../../lib/utils";
+import { authController } from "../../lib/api/authController";
 
-// Mock data 
+// =======================================================
+// KHỐI MOCK DATA VÀ CONSTANTS
+// =======================================================
+
 const mockDocuments: Document[] = [
   {
     id: "1",
     name: "Quy định nội bộ 2024.pdf",
     type: "PDF",
     size: "2.4 MB",
-    uploadedBy: "Nguyễn Văn A", // Owner (current user)
+    uploadedBy: "Nguyễn Văn A", 
     uploadedAt: "15/03/2024",
   },
   {
@@ -61,7 +67,7 @@ const mockDocuments: Document[] = [
     name: "Báo cáo tài chính Q1.xlsx",
     type: "Excel",
     size: "1.2 MB",
-    uploadedBy: "Trần Thị B", // Not Owner
+    uploadedBy: "Trần Thị B", 
     uploadedAt: "10/03/2024",
   },
   {
@@ -90,23 +96,38 @@ const mockDocuments: Document[] = [
   },
 ];
 
-export default function AlldocumentsUI() {
-  const router = useRouter();
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [documents, setDocuments] = useState(mockDocuments);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortCriteria, setSortCriteria] = useState<"newest" | "oldest" | "name" | "size">("newest"); // NEW: State cho tiêu chí sắp xếp
-  const [currentUser] = useState({
+const navigationItems = [
+  { title: "Tất cả tài liệu", icon: FileText, url: "/alldocuments" },
+  // Thêm các mục navigation khác nếu cần, ví dụ:
+  // { title: "Thùng rác", icon: Trash2, url: "/trashbin" },
+];
+
+const MOCK_CURRENT_USER = {
     name: "Nguyễn Văn A", // Tên người dùng hiện tại
     email: "nguyenvana@company.com",
     role: "Admin", // Vai trò được sử dụng để kiểm tra quyền Admin
-  });
+};
 
+// MOCK: Giả định trạng thái đăng nhập
+const isLoggedIn = false; 
+
+// =======================================================
+
+export default function AlldocumentsUI() {
+  const router = useRouter();
+  const pathname = usePathname(); // <--- DÒNG MỚI: Lấy đường dẫn hiện tại
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [documents, setDocuments] = useState(mockDocuments);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortCriteria, setSortCriteria] = useState<"newest" | "oldest" | "name" | "size">("newest");
+  const [currentUser] = useState(MOCK_CURRENT_USER);
+  
+  // Logic đã được hợp nhất từ App.tsx và AlldocumentsUI.tsx (giữ nguyên)
   const handleUpload = (file: File, metadata: any) => {
     const newDoc: Document = {
       id: Date.now().toString(),
-      name: metadata.documentName, // Sử dụng tên tài liệu do người dùng nhập
-      type: file.name.split('.').pop()?.toUpperCase() || "FILE", // Lấy định dạng file
+      name: metadata.documentName,
+      type: file.name.split('.').pop()?.toUpperCase() || "FILE",
       size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
       uploadedBy: currentUser.name, 
       uploadedAt: new Date().toLocaleDateString("vi-VN"),
@@ -115,7 +136,6 @@ export default function AlldocumentsUI() {
   };
 
   const handleDelete = (id: string) => {
-    // Permanent Deletion
     setDocuments(documents.filter((doc) => doc.id !== id));
   };
 
@@ -123,53 +143,20 @@ export default function AlldocumentsUI() {
     console.log("Downloading document:", id);
   };
   
-  // Handler for editing file information (Placeholder)
   const handleEditInfo = (doc: Document) => {
     alert(`[CHỨC NĂNG CHỈNH SỬA] Mở form chỉnh sửa thông tin cho tài liệu: ${doc.name}`);
   }
 
-  const handleLogout = () => {
+  const handleAuthRedirect = () => {
     router.push("/login");
   };
 
-  // Hàm chuyển đổi kích thước file thành số (MB) để so sánh
-  // Chuyển kích thước (ví dụ: "2.4 MB", "856 KB", "1 GB") thành số bytes để so sánh chính xác
-  const sizeToNumber = (size: string): number => {
-    if (!size) return 0;
-    const parts = size.trim().split(/\s+/);
-    const rawValue = parts[0]?.replace(',', '.');
-    const unit = (parts[1] || "").toUpperCase();
-    const value = parseFloat(rawValue) || 0;
-
-    switch (unit) {
-      case "GB":
-        return value * 1024 * 1024 * 1024;
-      case "MB":
-        return value * 1024 * 1024;
-      case "KB":
-        return value * 1024;
-      default:
-        // Nếu không có unit, giả sử là bytes
-        return value;
-    }
+  const handleLogout = () => {
+    authController.logout();
+    router.push("/login");
   };
   
-  // Hàm chuyển đổi ngày tháng từ định dạng dd/mm/yyyy sang đối tượng Date chuẩn
-  const parseDate = (dateString: string): Date => {
-    if (!dateString) return new Date(NaN);
-    const parts = dateString.split('/');
-    if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      const year = parseInt(parts[2], 10);
-      return new Date(year, month, day);
-    }
-    // Fallback: try Date constructor / parse
-    const parsed = new Date(dateString);
-    return isNaN(parsed.getTime()) ? new Date(NaN) : parsed;
-  }
-  
-  // Logic lọc và sắp xếp dữ liệu
+  // Logic lọc và sắp xếp (giữ nguyên)
   const sortedDocuments = useMemo(() => {
     const filtered = documents.filter((doc) =>
       doc.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -178,46 +165,34 @@ export default function AlldocumentsUI() {
     const sorted = [...filtered].sort((a, b) => {
       switch (sortCriteria) {
         case "oldest":
-          // Sắp xếp theo ngày tải lên (cũ nhất -> mới nhất)
-          // UPDATED: Sử dụng parseDate để so sánh an toàn hơn
           return parseDate(a.uploadedAt).getTime() - parseDate(b.uploadedAt).getTime();
         case "name":
-          // Sắp xếp theo Tên A-Z
           return a.name.localeCompare(b.name);
         case "size":
-          // Sắp xếp theo Kích thước (lớn nhất -> nhỏ nhất)
           return sizeToNumber(b.size) - sizeToNumber(a.size);
-        case "newest": // Mặc định và Mới nhất
+        case "newest": 
         default:
-          // Sắp xếp theo Ngày tải lên (mới nhất -> cũ nhất)
-          // UPDATED: Sử dụng parseDate để so sánh an toàn hơn
           return parseDate(b.uploadedAt).getTime() - parseDate(a.uploadedAt).getTime();
       }
     });
 
     return sorted;
-  }, [documents, searchQuery, sortCriteria]); // Chạy lại khi 3 state này thay đổi
+  }, [documents, searchQuery, sortCriteria]);
 
-  // Hiển thị label cho trigger của Select theo sortCriteria
   const getSortLabel = (key: "newest" | "oldest" | "name" | "size") => {
     switch (key) {
-      case "newest":
-        return "Mới nhất";
-      case "oldest":
-        return "Cũ nhất";
-      case "name":
-        return "Tên A-Z";
-      case "size":
-        return "Kích thước";
-      default:
-        return "";
+      case "newest": return "Mới nhất";
+      case "oldest": return "Cũ nhất";
+      case "name": return "Tên A-Z";
+      case "size": return "Kích thước";
+      default: return "";
     }
   };
 
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full flex-col">
-        {/* Top Bar (unchanged) */}
+        {/* Top Bar */}
         <header className="flex h-16 items-center justify-between border-b bg-background px-6">
           <div className="flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
@@ -230,43 +205,50 @@ export default function AlldocumentsUI() {
           </div>
 
           <div className="flex items-center gap-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-accent">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>
-                    {currentUser.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()
-                      .slice(0, 2)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="hidden flex-col items-start md:flex">
-                  <span>{currentUser.name}</span>
-                  <span className="text-muted-foreground">{currentUser.role}</span>
-                </div>
-                <ChevronDown className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[240px]">
-                <DropdownMenuLabel>
-                  <div className="flex flex-col space-y-1">
-                    <p>{currentUser.name}</p>
-                    <p className="text-muted-foreground">{currentUser.email}</p>
+            {isLoggedIn ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-accent">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>
+                      {currentUser.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="hidden flex-col items-start md:flex">
+                    <span>{currentUser.name}</span>
+                    <span className="text-muted-foreground">{currentUser.role}</span>
                   </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push("/information")}>
-                  <UserCircle className="mr-2 h-4 w-4" />
-                  Thông tin cá nhân
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Đăng xuất
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <ChevronDown className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[240px]">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p>{currentUser.name}</p>
+                      <p className="text-muted-foreground">{currentUser.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push("/alldocuments")}>
+                    <UserCircle className="mr-2 h-4 w-4" />
+                    Tài khoản
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Đăng xuất
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button onClick={handleAuthRedirect}>
+                <LogIn className="mr-2 size-4" />
+                Đăng nhập
+              </Button>
+            )}
           </div>
         </header>
 
@@ -288,15 +270,22 @@ export default function AlldocumentsUI() {
               <SidebarGroup>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    <SidebarMenuItem>
-                      <SidebarMenuButton isActive={true} onClick={() => router.push("/alldocuments")}>
-                        <FileText className="h-4 w-4" />
-                        <span>Tất cả tài liệu</span>
-                        <Badge variant="secondary" className="ml-auto">
-                          {documents.length}
-                        </Badge>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
+                    {navigationItems.map((item) => (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton 
+                            isActive={pathname === item.url} // <--- ĐÃ SỬA: Sử dụng pathname
+                            onClick={() => router.push(item.url)}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                          {item.title === "Tất cả tài liệu" && (
+                            <Badge variant="secondary" className="ml-auto">
+                              {documents.length}
+                            </Badge>
+                          )}
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
@@ -343,7 +332,7 @@ export default function AlldocumentsUI() {
             {/* Main Content: Bỏ chiều cao cố định để scroll table*/}
             <main className="flex-1 overflow-auto p-6">
               <DocumentsTable
-                documents={sortedDocuments} // UPDATED: Sử dụng dữ liệu đã sắp xếp
+                documents={sortedDocuments} 
                 onDelete={handleDelete}
                 onDownload={handleDownload}
                 currentUser={currentUser} 

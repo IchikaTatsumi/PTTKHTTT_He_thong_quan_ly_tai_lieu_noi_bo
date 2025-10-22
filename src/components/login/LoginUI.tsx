@@ -2,177 +2,223 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
-// UPDATED IMPORTS: Use the new local UI components
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Checkbox } from "../ui/checkbox";
+import { Loader2, User, Mail, Lock, LogIn, UserPlus } from "lucide-react";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../ui/alert-dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { useRouter } from "next/navigation";
+import { authController } from "../../lib/api/authController";
+import { LoginPayload, RegisterPayload } from "../../lib/api/authController";
 
+type AuthType = "login" | "register";
 type DialogState = "loading" | "success" | "error" | null;
 
 export default function LoginUI() {
   const router = useRouter();
+  const [authType, setAuthType] = useState<AuthType>("login");
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberPassword, setRememberPassword] = useState<boolean | "indeterminate">(false);
   const [dialogState, setDialogState] = useState<DialogState>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const isLogin = authType === "login";
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Hiển thị dialog loading
     setDialogState("loading");
-    
-    // Giả lập API call
-    setTimeout(() => {
-      // Mock login - kiểm tra đơn giản
-      if (username && password) {
-        // Giả sử đăng nhập thành công
-        setDialogState("success");
+    setErrorMessage("");
+
+    try {
+      if (isLogin) {
+        const payload: LoginPayload = { username, password };
+        // Giả lập call API (sẽ bị thay thế bằng call thật)
+        await authController.login(payload); 
         
-        // Chuyển hướng sau 1.5 giây
-        setTimeout(() => {
-          router.push("/alldocuments");
-        }, 1500);
       } else {
-        // Đăng nhập thất bại
-        setErrorMessage("Vui lòng nhập đầy đủ username và mật khẩu");
-        setDialogState("error");
+        if (!email) {
+          throw new Error("Email là bắt buộc.");
+        }
+        const payload: RegisterPayload = { username, email, password };
+        // Giả lập call API (sẽ bị thay thế bằng call thật)
+        await authController.register(payload);
       }
-    }, 1500);
+
+      // Success
+      setDialogState("success");
+      setTimeout(() => {
+        setDialogState(null);
+        router.push("/alldocuments"); // Chuyển hướng sau khi thành công
+      }, 1500);
+
+    } catch (error) {
+      // Error
+      setErrorMessage(error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định.");
+      setDialogState("error");
+      setTimeout(() => setDialogState(null), 3000); // Tự đóng sau 3s
+    } finally {
+      setUsername("");
+      setEmail("");
+      setPassword("");
+    }
   };
 
+  const getTitle = isLogin ? "Đăng nhập" : "Đăng ký";
+
   return (
-    <div className="flex h-screen w-full items-center justify-center bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700">
-      <div className="w-full max-w-[340px] rounded-xl bg-white p-8 shadow-2xl">
-        <div className="mb-6 text-center">
-          <h1 className="mb-2 text-2xl text-gray-800">Login to Account</h1>
-          <p className="text-sm text-gray-500">Please enter your email and password to continue</p>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="username" className="text-sm text-gray-700">User name</Label>
-            <Input
-              id="username"
-              type="text"
-              placeholder=""
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="h-10 bg-gray-100 border-gray-200"
-              required
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password" className="text-sm text-gray-700">Password</Label>
-              <button type="button" className="text-xs text-gray-400 hover:text-gray-600">
-                Forget Password?
-              </button>
+    <div className="flex min-h-screen w-full items-center justify-center bg-gray-50">
+      <Card className="w-full max-w-[400px] shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-center">{getTitle} vào DocManager</CardTitle>
+          <CardDescription className="text-center">
+            {isLogin 
+              ? "Sử dụng tên đăng nhập và mật khẩu của bạn." 
+              : "Tạo tài khoản mới để bắt đầu quản lý tài liệu. (Role mặc định: User)"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* Username */}
+            <div className="space-y-2">
+              <Label htmlFor="username">Tên đăng nhập</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Tên đăng nhập"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
             </div>
-            <Input
-              id="password"
-              type="password"
-              placeholder=""
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="h-10 bg-gray-100 border-gray-200"
-              required
-            />
-          </div>
 
-          <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="remember" 
-              checked={rememberPassword}
-              // Checkbox value is typically boolean or 'indeterminate'
-              onCheckedChange={(checked) => setRememberPassword(checked)} 
-            />
-            <label
-              htmlFor="remember"
-              className="text-sm text-gray-600 cursor-pointer select-none"
-            >
-              Remember Password
-            </label>
-          </div>
-
-          <Button 
-            type="submit" 
-            className="w-full h-11 bg-blue-500 hover:bg-blue-600 text-white rounded-md" 
-            disabled={dialogState === "loading"}
-          >
-            {dialogState === "loading" ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Loading...
-              </>
-            ) : (
-              "Sign In"
+            {/* Email (Chỉ cho Đăng ký) */}
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="example@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
             )}
-          </Button>
-        </form>
-      </div>
+            
+            {/* Password */}
+            <div className="space-y-2">
+              <Label htmlFor="password">Mật khẩu</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
 
-      {/* Loading Dialog */}
+            <Button 
+              type="submit" 
+              className="w-full h-10" 
+              disabled={dialogState === "loading"}
+            >
+              {dialogState === "loading" ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                <>
+                  {isLogin ? <LogIn className="mr-2 size-4" /> : <UserPlus className="mr-2 size-4" />}
+                  {getTitle}
+                </>
+              )}
+            </Button>
+          </form>
+          
+          <div className="mt-4 text-center text-sm">
+            {isLogin ? (
+              <p>
+                Chưa có tài khoản?{" "}
+                <Button variant="link" type="button" onClick={() => setAuthType("register")} className="p-0 h-auto text-primary">
+                  Đăng ký ngay
+                </Button>
+              </p>
+            ) : (
+              <p>
+                Đã có tài khoản?{" "}
+                <Button variant="link" type="button" onClick={() => setAuthType("login")} className="p-0 h-auto text-primary">
+                  Đăng nhập
+                </Button>
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Alert Dialogs */}
       <AlertDialog open={dialogState === "loading"}>
-        <AlertDialogContent>
+        <AlertDialogContent className="sm:max-w-sm">
           <AlertDialogHeader>
             <div className="flex items-center justify-center mb-4">
-              <Loader2 className="h-12 w-12 text-primary animate-spin" />
+              <Loader2 className="size-12 text-primary animate-spin" />
             </div>
-            <AlertDialogTitle className="text-center">Đang đăng nhập</AlertDialogTitle>
+            <AlertDialogTitle className="text-center">Đang xử lý...</AlertDialogTitle>
             <AlertDialogDescription className="text-center">
-              Vui lòng đợi trong giây lát...
+              Vui lòng đợi trong giây lát.
             </AlertDialogDescription>
           </AlertDialogHeader>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Success Dialog */}
       <AlertDialog open={dialogState === "success"}>
-        <AlertDialogContent>
+        <AlertDialogContent className="sm:max-w-sm">
           <AlertDialogHeader>
             <div className="flex items-center justify-center mb-4">
-              <CheckCircle2 className="h-12 w-12 text-green-500" />
+              <LogIn className="size-12 text-green-500" />
             </div>
-            <AlertDialogTitle className="text-center">Đăng nhập thành công!</AlertDialogTitle>
+            <AlertDialogTitle className="text-center">Thành công!</AlertDialogTitle>
             <AlertDialogDescription className="text-center">
-              Chào mừng bạn quay trở lại. Đang chuyển hướng...
+              {isLogin ? "Đăng nhập thành công. Đang chuyển hướng..." : "Đăng ký thành công. Đang chuyển hướng..."}
             </AlertDialogDescription>
           </AlertDialogHeader>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Error Dialog */}
-      <AlertDialog open={dialogState === "error"} onOpenChange={() => setDialogState(null)}>
-        <AlertDialogContent>
+      
+      <AlertDialog open={dialogState === "error"}>
+        <AlertDialogContent className="sm:max-w-sm">
           <AlertDialogHeader>
             <div className="flex items-center justify-center mb-4">
-              <XCircle className="h-12 w-12 text-destructive" />
+              <Lock className="size-12 text-destructive" />
             </div>
-            <AlertDialogTitle className="text-center">Đăng nhập thất bại</AlertDialogTitle>
+            <AlertDialogTitle className="text-center">Thất bại</AlertDialogTitle>
             <AlertDialogDescription className="text-center">
-              {errorMessage || "Email hoặc mật khẩu không đúng. Vui lòng thử lại."}
+              {errorMessage || "Đã xảy ra lỗi. Vui lòng thử lại."}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setDialogState(null)}>
-              Thử lại
-            </AlertDialogAction>
-          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

@@ -1,29 +1,6 @@
+// src/lib/api/UserController.ts
 import { fetchApi, UserProfileDTO } from '../../lib/utils';
-
-/**
- * Fallback getAuthToken implementation so this file doesn't depend on a missing '../../lib/cookie' module.
- * It first tries to read an "auth_token" cookie, then falls back to localStorage keys "authToken" or "token".
- */
-function getAuthToken(): string | null {
-  if (typeof document === 'undefined' || typeof window === 'undefined') return null;
-
-  // Try cookie "auth_token"
-  const cookieMatch = document.cookie?.match(/(?:^|; )auth_token=([^;]+)/);
-  if (cookieMatch && cookieMatch[1]) {
-    try {
-      return decodeURIComponent(cookieMatch[1]);
-    } catch {
-      return cookieMatch[1];
-    }
-  }
-
-  // Try localStorage keys
-  try {
-    return localStorage.getItem('authToken') || localStorage.getItem('token') || null;
-  } catch {
-    return null;
-  }
-}
+import { getAuthToken } from '../../lib/cookie/cookie'; // <--- ĐÃ SỬA: Import hàm getAuthToken chuẩn
 
 export const userController = {
   /**

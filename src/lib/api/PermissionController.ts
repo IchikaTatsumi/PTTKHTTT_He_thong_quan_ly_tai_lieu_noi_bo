@@ -1,5 +1,6 @@
+// src/lib/api/PermissionController.ts
 import { fetchApi, PermissionDTO } from '../../lib/utils';
-import { getAuthToken } from '../../lib/cookie';
+import { getAuthToken } from '../../lib/cookie/cookie'; // <--- ĐÃ SỬA: Import tường minh file cookie.ts
 
 interface CreatePermissionPayload {
     fileId: string;
