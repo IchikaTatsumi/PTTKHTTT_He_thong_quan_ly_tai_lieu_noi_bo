@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/doduc/Downloads/PTTKHTTT_He_thong_quan_ly_tai_lieu_noi_bo/src/app/page.tsx"],"sourcesContent":["// src/app/page.tsx\n\"use client\";\n\nimport React, { useEffect } from \"react\";\nimport { useRouter } from \"next/navigation\";\n\n// MOCK: Giả định trạng thái đăng nhập\nconst isLoggedIn = false; \n\nexport default function HomePage() {\n  const router = useRouter();\n\n  useEffect(() => {\n    if (isLoggedIn) {\n      router.push(\"/alldocuments\");\n    } else {\n      router.push(\"/login\"); \n    }\n  }, [router]);\n\n  return (\n    <div className=\"flex h-screen items-center justify-center\">\n      <p className=\"text-muted-foreground\">Đang tải...</p>\n    </div>\n  );\n}"],"names":[],"mappings":"AAAA,mBAAmB;;;;;;AAGnB;AACA;AAHA;;;;AAKA,sCAAsC;AACtC,MAAM,aAAa;AAEJ,SAAS;IACtB,MAAM,SAAS,IAAA,kJAAS;IAExB,IAAA,0KAAS;8BAAC;YACR;;iBAEO;gBACL,OAAO,IAAI,CAAC;YACd;QACF;6BAAG;QAAC;KAAO;IAEX,qBACE,mLAAC;QAAI,WAAU;kBACb,cAAA,mLAAC;YAAE,WAAU;sBAAwB;;;AAG3C","debugId":null}},
-    {"offset": {"line": 42, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/doduc/Downloads/PTTKHTTT_He_thong_quan_ly_tai_lieu_noi_bo/node_modules/next/navigation.js"],"sourcesContent":["module.exports = require('./dist/client/components/navigation')\n"],"names":[],"mappings":"AAAA,OAAO,OAAO","ignoreList":[0],"debugId":null}}]
-}

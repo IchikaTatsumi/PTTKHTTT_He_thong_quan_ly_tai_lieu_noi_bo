@@ -1,6 +1,17 @@
-// src/components/PermissionsDialog.tsx
-import { useState } from "react";
-import { Search, X, UserPlus, Shield } from "lucide-react";
+import { Search, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { FileDTO } from "../features/files";
+import {
+  CreatePermissionDTO,
+  UpdatePermissionDTO,
+  useFilePermissions,
+  usePermissionMutations,
+} from "../features/permissions";
+import { useUsers } from "../features/users";
+import { PermissionLevel, Role } from "../lib/constants/enums";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import {
@@ -19,180 +29,382 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { Avatar, AvatarFallback } from "./ui/avatar";
-import { Badge } from "./ui/badge";
-import { Document } from "./DocumentsTable";
 
 interface PermissionsDialogProps {
+  currentUserId: string;
+  isOwner: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  document: Document;
-  // NOTE: Sử dụng vai trò người dùng hiện tại để kiểm tra quyền
-  currentUserRole?: "viewer" | "owner" | "admin" | "manager";
+  document: FileDTO;
+  currentUserRole?: Role;
 }
 
-interface UserPermission {
-  id: string;
-  name: string;
-  email: string;
-  // UPDATED: Removed 'editor' role.
-  role: "viewer" | "owner" | "admin" | "manager"; 
-  department: string;
+interface PendingChange {
+  userId: string;
+  permissionId?: string;
+  newRole: string;
+  action: "create" | "update" | "delete";
 }
 
-// Giả định vai trò người dùng hiện tại là 'admin' để minh họa logic
-const FAKE_CURRENT_USER_ROLE: UserPermission["role"] = "admin"; 
-
-export function PermissionsDialog({ open, onOpenChange, document, currentUserRole = FAKE_CURRENT_USER_ROLE }: PermissionsDialogProps) {
+export function PermissionsDialog({
+  currentUserId,
+  isOwner,
+  open,
+  onOpenChange,
+  document,
+  currentUserRole,
+}: PermissionsDialogProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [permissions, setPermissions] = useState<UserPermission[]>([
-    {
-      id: "1",
-      name: "Nguyễn Văn A",
-      email: "nguyenvana@company.com",
-      role: "owner",
-      department: "Công nghệ"
-    },
-    {
-      id: "admin-404", 
-      name: "Trần Văn Quản Trị",
-      email: "admin@company.com",
-      role: "admin",
-      department: "Quản lý"
-    },
-    {
-      id: "manager-500", 
-      name: "Lý Văn Quản Lý",
-      email: "manager@company.com",
-      role: "manager", // Vai trò Manager
-      department: "Điều hành"
-    },
-    {
-      id: "2",
-      name: "Trần Thị B",
-      email: "tranthib@company.com",
-      role: "viewer", // UPDATED: Changed from 'editor' to 'viewer'
-      department: "Marketing"
-    },
-    {
-      id: "3",
-      name: "Lê Văn C",
-      email: "levanc@company.com",
-      role: "viewer",
-      department: "Nhân sự"
+  const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
+
+  // Hooks for permissions and users
+  const {
+    permissions,
+    loading: permissionsLoading,
+    error: permissionsError,
+    fetchFilePermissions,
+  } = useFilePermissions(document.id);
+  const {
+    loading: mutationLoading,
+    error: mutationError,
+    assignPermission,
+    updatePermission,
+    removePermission,
+  } = usePermissionMutations();
+  const {
+    users,
+    loading: usersLoading,
+    error: usersError,
+    fetchAllUsers,
+  } = useUsers();
+
+  // Fetch data when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchFilePermissions(document.id);
+      fetchAllUsers();
+      // Reset pending changes when dialog opens
+      setPendingChanges([]);
     }
-  ]);
+  }, [open, document.id]); // Removed fetchFilePermissions and fetchAllUsers from dependencies to prevent infinite loop
 
-  const availableUsers = [
-    { id: "4", name: "Phạm Thị D", email: "phamthid@company.com", department: "Tài chính" },
-    { id: "5", name: "Hoàng Văn E", email: "hoangvane@company.com", department: "Pháp lý" },
-  ];
-
-  const handleRoleChange = (userId: string, newRole: string) => {
-    // Chỉ Owner và Admin mới được thăng cấp lên Manager
-    const canPromoteDemote = currentUserRole === "owner" || currentUserRole === "admin";
-    const currentRole = permissions.find(p => p.id === userId)?.role;
-
-    // Logic hạn chế: Manager chỉ có thể phân quyền giữa Viewer (User)
-    const isCurrentUserManager = currentUserRole === 'manager';
-    const isTargetUserManagerOrHigher = currentRole === 'manager' || currentRole === 'admin' || currentRole === 'owner';
-    
-    // Nếu người dùng hiện tại là Manager và đang cố gắng thay đổi quyền của Manager/Admin/Owner, ngăn chặn
-    if (isCurrentUserManager && isTargetUserManagerOrHigher) {
-        console.warn("Permission denied: Manager không thể thay đổi vai trò của Manager/Admin/Owner.");
-        return;
-    }
-    
-    // Giữ logic thăng cấp/giáng cấp Admin/Owner
-    if (newRole === "manager") { 
-      if (!canPromoteDemote) {
-         console.warn("Permission denied: Chỉ Chủ sở hữu hoặc Admin mới có thể thăng cấp.");
-         return;
-      }
-    }
-
-    // Chỉ Owner và Admin mới được giáng cấp Manager (xuống viewer)
-    if (currentRole === "manager" && newRole !== "manager") {
-       if (!canPromoteDemote) {
-           console.warn("Permission denied: Chỉ Chủ sở hữu hoặc Admin mới có thể giáng cấp Manager.");
-           return;
-       }
-    }
-
-    setPermissions(permissions.map(p => 
-      p.id === userId ? { ...p, role: newRole as any } : p
-    ));
-  };
-
-  const handleRemoveUser = (userId: string) => {
-    const canPromoteDemote = currentUserRole === "owner" || currentUserRole === "admin";
-    const targetUser = permissions.find(p => p.id === userId);
-    
-    // Ngăn Manager bị xóa bởi người dùng cấp thấp hơn
-    if (targetUser?.role === "manager" && !canPromoteDemote) {
-        console.warn("Permission denied: Chỉ Chủ sở hữu hoặc Admin mới có thể xóa Manager.");
-        return;
-    }
-
-    // Manager không được xóa Admin/Owner
-    if (currentUserRole === 'manager' && (targetUser?.role === 'owner' || targetUser?.role === 'admin')) {
-         console.warn("Permission denied: Manager không thể xóa Admin/Owner.");
-         return;
-    }
-    
-    setPermissions(permissions.filter(p => p.id !== userId));
-  };
-  
-  const handleAddUser = (user: typeof availableUsers[0]) => {
-    setPermissions([...permissions, { ...user, role: "viewer" }]);
-  };
-
-  const getRoleBadge = (role: UserPermission["role"]) => {
-    switch (role) {
-      case "owner":
-        return <Badge>Chủ sở hữu</Badge>;
-      case "admin":
-        return <Badge variant="destructive">Admin</Badge>;
-      case "manager":
-        return <Badge variant="secondary" className="bg-yellow-600 hover:bg-yellow-600/80 text-white">Quản lý</Badge>; 
-      case "viewer":
-        return <Badge variant="outline">Người dùng</Badge>; 
-      default:
-        return <Badge>{role}</Badge>;
-    }
-  };
-  
-  // Hàm trợ giúp để xác định văn bản hiển thị trong SelectTrigger
-  const getSelectTriggerValue = (role: UserPermission["role"]) => {
-    switch (role) {
-      case "admin":
-        return "Admin";
-      case "owner":
-        return "Chủ sở hữu";
-      case "manager":
-        return "Manager";
-      case "viewer":
-        return "Xem"; 
-      default:
-        return "";
-    }
-  };
-
-  const getInitials = (name: string) => {
-    return name
+  // Helper functions
+  const getInitials = (username: string) =>
+    username
       .split(" ")
-      .map(n => n[0])
+      .map((n) => n[0])
       .join("")
       .toUpperCase()
       .slice(0, 2);
+
+  const getRoleBadge = (permissionLevel?: PermissionLevel | null) => {
+    if (!permissionLevel) return <Badge>Không xác định</Badge>;
+    switch (permissionLevel) {
+      case PermissionLevel.MANAGE:
+        return (
+          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+            Quản lý
+          </Badge>
+        );
+      case PermissionLevel.VIEW:
+        return (
+          <Badge variant="secondary" className="bg-green-100 text-green-800">
+            Xem
+          </Badge>
+        );
+      default:
+        return <Badge>Không xác định</Badge>;
+    }
   };
 
-  const filteredUsers = availableUsers.filter(user =>
-    !permissions.some(p => p.id === user.id) &&
-    (user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     user.email.toLowerCase().includes(searchQuery.toLowerCase()))
+  const getSelectTriggerValue = (permissionLevel?: PermissionLevel | null) => {
+    if (!permissionLevel) return "Không có quyền";
+    switch (permissionLevel) {
+      case PermissionLevel.MANAGE:
+        return "Quản lý";
+      case PermissionLevel.VIEW:
+        return "Xem";
+      default:
+        return "Không có quyền";
+    }
+  };
+
+  // Permission handling
+  const isCurrentUserOwner = isOwner;
+  const isCurrentUserAdmin = !isOwner && currentUserRole === Role.Admin;
+  const isCurrentUserManage = !isOwner && !isCurrentUserAdmin; // Users with manage permissions but not owner/admin
+
+  // Get current permission level for a user, considering pending changes
+  const getCurrentPermissionLevel = (userId: string) => {
+    const existingPermission = permissions.find((p) => p.user.id === userId);
+
+    // Check if there's a pending change for this user
+    const pendingChange = pendingChanges.find(
+      (change) => change.userId === userId
+    );
+
+    if (pendingChange) {
+      if (pendingChange.action === "delete") {
+        return null; // User will be removed
+      }
+      if (
+        pendingChange.action === "create" ||
+        pendingChange.action === "update"
+      ) {
+        return parseInt(pendingChange.newRole) as PermissionLevel;
+      }
+    }
+
+    return existingPermission?.permissionLevel;
+  };
+
+  // Get current permission ID for a user, considering pending changes
+  const getCurrentPermissionId = (userId: string) => {
+    const existingPermission = permissions.find((p) => p.user.id === userId);
+
+    // Check if there's a pending change for this user
+    const pendingChange = pendingChanges.find(
+      (change) => change.userId === userId
+    );
+
+    if (pendingChange) {
+      if (pendingChange.action === "delete") {
+        return pendingChange.permissionId; // Return the ID of the permission that will be deleted
+      }
+      return pendingChange.permissionId || existingPermission?.id;
+    }
+
+    return existingPermission?.id;
+  };
+
+  const handleRoleChange = useCallback(
+    (userId: string, newRole: string, permissionId?: string) => {
+      // Get the target user to check their role
+      const targetUser = users.find((user) => user.id === userId);
+      if (!targetUser) {
+        console.warn("Target user not found");
+        return;
+      }
+
+      const currentPermission = permissions.find((p) => p.user.id === userId);
+      const currentRole = currentPermission?.permissionLevel;
+
+      // Check if target user is admin
+      const isTargetAdmin = targetUser.role === Role.Admin;
+
+      // Admin and owner cannot change each other's permissions
+      if (
+        (isCurrentUserAdmin && isOwner) ||
+        (isCurrentUserOwner && isTargetAdmin)
+      ) {
+        console.warn(
+          "Permission denied: Admin and Owner cannot change each other's permissions."
+        );
+        return;
+      }
+
+      // Non-owner/non-admin users with manage permission can only assign/revoke VIEW permissions
+      if (isCurrentUserManage) {
+        if (parseInt(newRole) === PermissionLevel.MANAGE) {
+          console.warn(
+            "Permission denied: Non-owner/non-admin users with manage permission cannot assign MANAGE permissions."
+          );
+          return;
+        }
+
+        // Check if the user being changed is admin
+        if (isTargetAdmin) {
+          console.warn(
+            "Permission denied: Non-owner/non-admin users cannot change permissions of Admin."
+          );
+          return;
+        }
+
+        // Current user is manage, so they can only manage VIEW permissions
+        // Cannot change to MANAGE or remove someone with MANAGE permission
+        if (
+          currentRole === PermissionLevel.MANAGE ||
+          parseInt(newRole) === PermissionLevel.MANAGE
+        ) {
+          console.warn(
+            "Permission denied: Non-owner/non-admin users cannot change MANAGE permissions."
+          );
+          return;
+        }
+      }
+
+      // Owner can change manage permission of non-admin users
+      if (isCurrentUserOwner && isTargetAdmin) {
+        console.warn(
+          "Permission denied: Owner cannot change permissions of Admin."
+        );
+        return;
+      }
+
+      // Determine the action based on the new role and existing permission
+      let action: "create" | "update" | "delete";
+      if (newRole === "none") {
+        if (permissionId) {
+          action = "delete";
+        } else {
+          // This case shouldn't happen but just in case
+          return;
+        }
+      } else if (currentPermission) {
+        action = "update";
+      } else {
+        action = "create";
+      }
+
+      // Update pending changes
+      setPendingChanges((prev) => {
+        // Remove any existing change for this user
+        const filtered = prev.filter((change) => change.userId !== userId);
+
+        // Add new change (only if it's different from current state)
+        if (
+          action === "delete" ||
+          parseInt(newRole) !== (currentPermission?.permissionLevel || -1)
+        ) {
+          return [
+            ...filtered,
+            {
+              userId,
+              permissionId:
+                action === "delete" ? permissionId : permissionId || undefined,
+              newRole,
+              action,
+            },
+          ];
+        }
+
+        return filtered;
+      });
+    },
+    [
+      permissions,
+      users,
+      isCurrentUserOwner,
+      isCurrentUserAdmin,
+      isCurrentUserManage,
+    ]
   );
 
+  const handleRemoveUser = useCallback(
+    (permissionId: string, userId: string) => {
+      // Get the target user to check their role
+      const targetUser = users.find((user) => user.id === userId);
+      if (!targetUser) {
+        console.warn("Target user not found");
+        return;
+      }
+
+      const targetPermission = permissions.find((p) => p.id === permissionId);
+      const targetRole = targetUser.role;
+
+      // Admin and owner cannot change each other's permissions
+      const isTargetAdmin = targetRole === Role.Admin;
+
+      if (
+        (isCurrentUserAdmin && isOwner) ||
+        (isCurrentUserOwner && isTargetAdmin)
+      ) {
+        console.warn(
+          "Permission denied: Admin and Owner cannot change each other's permissions."
+        );
+        return;
+      }
+
+      // Non-owner/non-admin users with manage permission can only remove VIEW permissions
+      if (isCurrentUserManage) {
+        // Check if the user being changed is admin
+        if (isTargetAdmin) {
+          console.warn(
+            "Permission denied: Non-owner/non-admin users cannot change permissions of Admin."
+          );
+          return;
+        }
+
+        // Check if the permission level is MANAGE
+        if (targetPermission?.permissionLevel === PermissionLevel.MANAGE) {
+          console.warn(
+            "Permission denied: Non-owner/non-admin users cannot change MANAGE permissions."
+          );
+          return;
+        }
+      }
+
+      // Owner can remove permissions from non-admin users
+      if (isCurrentUserOwner && isTargetAdmin) {
+        console.warn(
+          "Permission denied: Owner cannot change permissions of Admin."
+        );
+        return;
+      }
+
+      // Update pending changes
+      setPendingChanges((prev) => {
+        // Remove any existing change for this user
+        const filtered = prev.filter((change) => change.userId !== userId);
+
+        // Add delete action
+        return [
+          ...filtered,
+          {
+            userId,
+            permissionId,
+            newRole: "none",
+            action: "delete",
+          },
+        ];
+      });
+    },
+    [
+      permissions,
+      users,
+      isCurrentUserOwner,
+      isCurrentUserAdmin,
+      isCurrentUserManage,
+    ]
+  );
+
+  const handleApplyChanges = async () => {
+    // Process all pending changes
+    for (const change of pendingChanges) {
+      try {
+        if (change.action === "create") {
+          const permissionData: CreatePermissionDTO = {
+            fileId: document.id,
+            userId: change.userId,
+            permissionLevel: parseInt(change.newRole) as PermissionLevel,
+          };
+          await assignPermission(permissionData);
+        } else if (change.action === "update") {
+          const updateData: UpdatePermissionDTO = {
+            fileId: document.id,
+            permissionLevel: parseInt(change.newRole) as PermissionLevel,
+          };
+          await updatePermission(change.permissionId!, updateData);
+        } else if (change.action === "delete" && change.permissionId) {
+          await removePermission(change.permissionId, document.id);
+        }
+      } catch (error) {
+        console.error("Error processing change:", error);
+      }
+    }
+
+    // Refetch permissions after all changes are applied
+    await fetchFilePermissions(document.id);
+    // Reset pending changes
+    setPendingChanges([]);
+  };
+
+  // Filter users based on search query and exclude current user
+  const filteredUsers = users.filter(
+    (user) =>
+      user.username.toLowerCase().includes(searchQuery.toLowerCase()) &&
+      user.id !== currentUserId
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -200,15 +412,14 @@ export function PermissionsDialog({ open, onOpenChange, document, currentUserRol
         <DialogHeader>
           <DialogTitle>Quản lý quyền truy cập</DialogTitle>
           <DialogDescription>
-            Quản lý người dùng có quyền truy cập vào "{document.name}"
+            Quản lý quyền truy cập cho tài liệu "{document.name}"
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          
-          {/* Add User Search */}
+          {/* Search Bar */}
           <div className="space-y-2">
-            <Label>Thêm người dùng</Label>
+            <Label>Tìm kiếm người dùng</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -218,153 +429,131 @@ export function PermissionsDialog({ open, onOpenChange, document, currentUserRol
                 className="pl-9"
               />
             </div>
-            {searchQuery && filteredUsers.length > 0 && (
-              <div className="mt-2 max-h-[150px] overflow-y-auto rounded-lg border bg-background">
-                {filteredUsers.map(user => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-3 hover:bg-accent cursor-pointer"
-                    onClick={() => {
-                      handleAddUser(user);
-                      setSearchQuery("");
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div>{user.name}</div>
-                        <div className="text-muted-foreground">{user.email}</div>
-                      </div>
-                    </div>
-                    <UserPlus className="h-4 w-4" />
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
-          {/* Current Permissions */}
+          {/* Users List */}
           <div className="space-y-2">
-            <Label>Người dùng có quyền truy cập ({permissions.length})</Label>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {permissions.map(user => {
-                const isCurrentUserOwner = currentUserRole === "owner";
-                const canPromoteDemote = currentUserRole === "owner" || currentUserRole === "admin";
-                const isCurrentUserManager = currentUserRole === 'manager';
-                
-                const isOwner = user.role === "owner";
-                const isAdmin = user.role === "admin";
-                const isManager = user.role === "manager";
-                const isUser = user.role === "viewer";
-                
-                // Target roles
-                const isTargetTopTier = isOwner || isAdmin;
-                const isTargetMidTierOrHigher = isTargetTopTier || isManager;
-                
-                // Visibility Logic
-                // HIDE controls if target is Admin/Owner (vì quyền của họ không nên bị thay đổi qua UI này)
-                const shouldHideControls = isTargetTopTier;
-                
-                // Ẩn dropdown và nút xóa nếu người dùng hiện tại là Manager và đang xem Manager khác
-                const shouldHideControlsForManager = isCurrentUserManager && isManager;
+            <Label>Danh sách người dùng ({filteredUsers.length})</Label>
+            <div className="max-h-[400px] overflow-y-auto rounded-lg border">
+              {filteredUsers.map((user) => {
+                // Use the updated functions that consider pending changes
+                const currentPermissionLevel = getCurrentPermissionLevel(
+                  user.id
+                );
+                const currentPermissionId = getCurrentPermissionId(user.id);
 
-                // Nút xóa:
-                const canRemoveTargetByAdminOwner = canPromoteDemote && !isOwner;
-                const canRemoveTargetByManager = isCurrentUserManager && isUser;
-                const canRemove = isCurrentUserOwner || canRemoveTargetByAdminOwner || canRemoveTargetByManager;
+                const isManage =
+                  currentPermissionLevel === PermissionLevel.MANAGE;
+                const isUserAdmin = user.role === Role.Admin;
 
+                // Determine if current user can change this user's permissions
+                let canChangePermission = false;
 
-                const roleDisplay = getRoleBadge(user.role);
-
-                // Hiển thị dropdown/controls nếu target KHÔNG PHẢI Owner/Admin VÀ (target không phải Manager HOẶC current user là Admin/Owner)
-                const shouldShowDropdownAndControls = !isTargetTopTier && !(isCurrentUserManager && isManager);
-
+                // Admin and owner cannot change each other's permissions
+                if (
+                  (isCurrentUserAdmin && isOwner) ||
+                  (isCurrentUserOwner && isUserAdmin)
+                ) {
+                  canChangePermission = false;
+                }
+                // Non-owner/non-admin users with manage permission can only manage VIEW permissions
+                else if (isCurrentUserManage) {
+                  // Cannot change admin permissions
+                  if (isUserAdmin) {
+                    canChangePermission = false;
+                  }
+                  // Can only manage VIEW permissions
+                  else if (isManage) {
+                    canChangePermission = false;
+                  } else {
+                    canChangePermission = true;
+                  }
+                }
+                // Owner can change permissions of non-admin users
+                else if (isCurrentUserOwner) {
+                  if (isUserAdmin) {
+                    canChangePermission = false;
+                  } else {
+                    canChangePermission = true;
+                  }
+                }
+                // Admin can change permissions (except for owner)
+                else if (isCurrentUserAdmin) {
+                  if (isOwner) {
+                    canChangePermission = false;
+                  } else {
+                    canChangePermission = true;
+                  }
+                }
+                // Regular users without manage permissions cannot change permissions
+                else {
+                  canChangePermission = false;
+                }
 
                 return (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between rounded-lg border p-3"
+                    className="flex items-center justify-between p-3 hover:bg-accent"
                   >
                     <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>
+                          {getInitials(user.username)}
+                        </AvatarFallback>
                       </Avatar>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span>{user.name}</span>
-                          {roleDisplay}
+                          <span>{user.username}</span>
+                          {user.role === Role.Admin
+                            ? getRoleBadge(PermissionLevel.MANAGE)
+                            : getRoleBadge(currentPermissionLevel)}
                         </div>
-                        <div className="text-muted-foreground">
-                          {user.email} • {user.department}
+                        <div className="text-sm text-muted-foreground">
+                          {user.role}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      
-                      {/* Hiển thị DROPDOWN VÀ NÚT XÓA */}
-                      {shouldShowDropdownAndControls ? ( 
-                        <>
-                          <Select
-                            value={user.role}
-                            onValueChange={(value) => handleRoleChange(user.id, value)}
-                            // Nếu user là Manager, chỉ Owner/Admin mới được thay đổi vai trò của họ
-                            disabled={isManager && !canPromoteDemote} 
-                          >
-                            <SelectTrigger className="w-[120px]"> {/* Giảm chiều rộng để trông giống User hơn */}
-                              {/* Hiển thị giá trị hiện tại */}
-                              <SelectValue placeholder={getSelectTriggerValue(user.role)} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              
-                              {/* Logic đã được sửa: */}
-                              {/* Cho phép chọn Manager nếu: (Mục tiêu là Viewer VÀ có quyền thăng cấp) HOẶC Mục tiêu đã là Manager */}
-                              {(isUser && canPromoteDemote) || isManager ? (
-                                <SelectItem
-                                    value="manager"
-                                    // Vô hiệu hóa nút nếu đang thăng cấp Viewer mà không có quyền
-                                    disabled={isUser && !canPromoteDemote} 
-                                >
-                                    Manager
-                                </SelectItem>
-                              ) : null}
-
-                              {/* Luôn hiển thị Xem, nhưng vô hiệu hóa nếu mục tiêu là Manager và không có quyền giáng cấp (chỉ Owner/Admin có quyền) */}
-                              <SelectItem 
-                                  value="viewer"
-                                  disabled={isManager && !canPromoteDemote} 
-                              >
-                                  Xem
-                              </SelectItem>
-
-                            </SelectContent>
-                          </Select>
-                          
-                          {/* Nút xóa/hủy quyền */}
+                      <Select
+                        value={currentPermissionLevel?.toString() || "none"}
+                        onValueChange={(value) =>
+                          handleRoleChange(user.id, value, currentPermissionId)
+                        }
+                        disabled={!canChangePermission}
+                      >
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue
+                            placeholder={getSelectTriggerValue(
+                              currentPermissionLevel
+                            )}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Không có quyền</SelectItem>
+                          <SelectItem value={String(PermissionLevel.VIEW)}>
+                            Xem
+                          </SelectItem>
+                          {(isCurrentUserAdmin || isCurrentUserOwner) && (
+                            <SelectItem value={String(PermissionLevel.MANAGE)}>
+                              Quản lý
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {currentPermissionLevel !== undefined &&
+                        canChangePermission && (
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleRemoveUser(user.id)}
-                            disabled={!canRemove} 
+                            onClick={() =>
+                              currentPermissionId &&
+                              handleRemoveUser(currentPermissionId, user.id)
+                            }
+                            disabled={!canChangePermission}
                           >
                             <X className="h-4 w-4" />
                           </Button>
-                        </>
-                      ) : (
-                        // Trường hợp HIDE: Chỉ hiển thị nút xóa/hủy quyền nếu có quyền xóa người dùng cấp cao
-                        isTargetMidTierOrHigher && canPromoteDemote && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveUser(user.id)}
-                            // Chỉ Owner/Admin mới được xóa Admin/Owner/Manager khác
-                            disabled={!canRemoveTargetByAdminOwner} 
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                      )
-                      )}
+                        )}
                     </div>
                   </div>
                 );
@@ -377,9 +566,28 @@ export function PermissionsDialog({ open, onOpenChange, document, currentUserRol
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Hủy
           </Button>
-          <Button onClick={() => onOpenChange(false)}>
-            Lưu thay đổi
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setPendingChanges([])}
+              disabled={pendingChanges.length === 0}
+            >
+              Hủy thay đổi
+            </Button>
+            <Button
+              onClick={handleApplyChanges}
+              disabled={
+                mutationLoading ||
+                permissionsLoading ||
+                usersLoading ||
+                pendingChanges.length === 0
+              }
+            >
+              {mutationLoading
+                ? "Đang áp dụng..."
+                : `Áp dụng (${pendingChanges.length})`}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

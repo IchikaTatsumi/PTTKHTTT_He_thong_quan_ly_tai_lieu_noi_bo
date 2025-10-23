@@ -34,12 +34,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "app/alldocuments/page.js",
     "src/app/(auth)/login/page.js",
-    "src/app/alldocuments/page.js",
     "src/app/layout.tsx",
-    ".next\\dev/types/**/*.ts",
-    ".next\\dev/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [

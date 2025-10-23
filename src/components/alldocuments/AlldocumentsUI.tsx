@@ -1,38 +1,25 @@
-// src/components/alldocuments/AlldocumentsUI.tsx (Bản cập nhật cuối cùng sau khi hợp nhất và sửa lỗi TS2339)
 "use client";
 
-import { useState, useMemo } from "react";
 import {
-  FileText,
-  Upload,
-  Search,
-  FolderOpen,
   ChevronDown,
-  UserCircle,
-  LogOut,
+  FileText,
+  FolderOpen,
   LogIn,
+  LogOut,
+  Search,
+  Upload,
+  UserCircle,
 } from "lucide-react";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarInset,
-  SidebarHeader,
-} from "../ui/sidebar";
+import { usePathname, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useAuth } from "../../features/auth";
+import { FileDTO, useFileMutations, useFiles } from "../../features/files";
+import { fileService } from "../../features/files/services/file.service";
+import { parseDate } from "../../lib/utils";
+import { DocumentsTable } from "../DocumentsTable";
+import { UploadDialog } from "../UploadDialog";
+import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,151 +28,144 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "../ui/avatar";
-import { DocumentsTable, Document } from "../DocumentsTable";
-import { UploadDialog } from "../UploadDialog";
-import { Badge } from "../ui/badge";
-import { useRouter, usePathname } from "next/navigation"; // <--- ĐÃ SỬA: Thêm usePathname
-import { parseDate, sizeToNumber } from "../../lib/utils";
-import { authController } from "../../lib/api/authController";
-
-// =======================================================
-// KHỐI MOCK DATA VÀ CONSTANTS
-// =======================================================
-
-const mockDocuments: Document[] = [
-  {
-    id: "1",
-    name: "Quy định nội bộ 2024.pdf",
-    type: "PDF",
-    size: "2.4 MB",
-    uploadedBy: "Nguyễn Văn A", 
-    uploadedAt: "15/03/2024",
-  },
-  {
-    id: "2",
-    name: "Báo cáo tài chính Q1.xlsx",
-    type: "Excel",
-    size: "1.2 MB",
-    uploadedBy: "Trần Thị B", 
-    uploadedAt: "10/03/2024",
-  },
-  {
-    id: "3",
-    name: "Kế hoạch Marketing 2024.pptx",
-    type: "PowerPoint",
-    size: "5.8 MB",
-    uploadedBy: "Lê Văn C",
-    uploadedAt: "08/03/2024",
-  },
-  {
-    id: "4",
-    name: "Hợp đồng đối tác ABC.docx",
-    type: "Word",
-    size: "856 KB",
-    uploadedBy: "Phạm Thị D",
-    uploadedAt: "05/03/2024",
-  },
-  {
-    id: "5",
-    name: "Tài liệu đào tạo nhân viên mới.pdf",
-    type: "PDF",
-    size: "3.2 MB",
-    uploadedBy: "Hoàng Văn E",
-    uploadedAt: "01/03/2024",
-  },
-];
+import { Input } from "../ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { SidebarInset, SidebarProvider } from "../ui/sidebar";
 
 const navigationItems = [
   { title: "Tất cả tài liệu", icon: FileText, url: "/alldocuments" },
-  // Thêm các mục navigation khác nếu cần, ví dụ:
-  // { title: "Thùng rác", icon: Trash2, url: "/trashbin" },
 ];
+// -----------------------------------------------------------------------
 
-const MOCK_CURRENT_USER = {
-    name: "Nguyễn Văn A", // Tên người dùng hiện tại
-    email: "nguyenvana@company.com",
-    role: "Admin", // Vai trò được sử dụng để kiểm tra quyền Admin
+export const downloadFileClient = (data: Blob, filename: string) => {
+  const url = window.URL.createObjectURL(data);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+
+  document.body.appendChild(link);
+  link.click();
+  console.log(url);
+
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
 };
-
-// MOCK: Giả định trạng thái đăng nhập
-const isLoggedIn = false; 
-
-// =======================================================
 
 export default function AlldocumentsUI() {
   const router = useRouter();
-  const pathname = usePathname(); // <--- DÒNG MỚI: Lấy đường dẫn hiện tại
+  const pathname = usePathname();
+  const { user, isAuthenticated, loading, logout } = useAuth();
+  const {
+    files: allFiles,
+    loading: filesLoading,
+    error: filesError,
+    fetchFiles,
+  } = useFiles();
+  const { uploadFile, deleteFile } = useFileMutations();
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [documents, setDocuments] = useState(mockDocuments);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortCriteria, setSortCriteria] = useState<"newest" | "oldest" | "name" | "size">("newest");
-  const [currentUser] = useState(MOCK_CURRENT_USER);
-  
-  // Logic đã được hợp nhất từ App.tsx và AlldocumentsUI.tsx (giữ nguyên)
-  const handleUpload = (file: File, metadata: any) => {
-    const newDoc: Document = {
-      id: Date.now().toString(),
-      name: metadata.documentName,
-      type: file.name.split('.').pop()?.toUpperCase() || "FILE",
-      size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-      uploadedBy: currentUser.name, 
-      uploadedAt: new Date().toLocaleDateString("vi-VN"),
-    };
-    setDocuments([newDoc, ...documents]);
+  const [sortCriteria, setSortCriteria] = useState<
+    "newest" | "oldest" | "name" | "size"
+  >("newest");
+
+  const handleUpload = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await uploadFile(formData);
+    if (response.success) {
+      // Refresh the file list
+      fetchFiles();
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setDocuments(documents.filter((doc) => doc.id !== id));
+  const handleDelete = async (id: string) => {
+    const response = await deleteFile(id);
+    if (response.success) {
+      // Refresh the file list
+      fetchFiles();
+    }
   };
 
-  const handleDownload = (id: string) => {
-    console.log("Downloading document:", id);
+  const handleDownload = async (id: string) => {
+    try {
+      const { data, filename } = await fileService.downloadFileServer(id);
+      downloadFileClient(data, filename);
+    } catch (error) {
+      console.error("Download failed:", error);
+    }
   };
-  
-  const handleEditInfo = (doc: Document) => {
-    alert(`[CHỨC NĂNG CHỈNH SỬA] Mở form chỉnh sửa thông tin cho tài liệu: ${doc.name}`);
-  }
+
+  const handleEditInfo = (doc: FileDTO) => {
+    alert(
+      `[CHỨC NĂNG CHỈNH SỬA] Mở form chỉnh sửa thông tin cho tài liệu: ${doc.name}`
+    );
+  };
 
   const handleAuthRedirect = () => {
     router.push("/login");
   };
 
   const handleLogout = () => {
-    authController.logout();
+    logout();
     router.push("/login");
   };
-  
+
   // Logic lọc và sắp xếp (giữ nguyên)
   const sortedDocuments = useMemo(() => {
-    const filtered = documents.filter((doc) =>
+    const filtered = allFiles.filter((doc) =>
       doc.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const sorted = [...filtered].sort((a, b) => {
       switch (sortCriteria) {
         case "oldest":
-          return parseDate(a.uploadedAt).getTime() - parseDate(b.uploadedAt).getTime();
+          return (
+            parseDate(
+              new Date(a.createdAt).toLocaleDateString("vi-VN")
+            ).getTime() -
+            parseDate(
+              new Date(b.createdAt).toLocaleDateString("vi-VN")
+            ).getTime()
+          );
         case "name":
           return a.name.localeCompare(b.name);
         case "size":
-          return sizeToNumber(b.size) - sizeToNumber(a.size);
-        case "newest": 
+          return b.size - a.size;
+        case "newest":
         default:
-          return parseDate(b.uploadedAt).getTime() - parseDate(a.uploadedAt).getTime();
+          return (
+            parseDate(
+              new Date(b.createdAt).toLocaleDateString("vi-VN")
+            ).getTime() -
+            parseDate(
+              new Date(a.createdAt).toLocaleDateString("vi-VN")
+            ).getTime()
+          );
       }
     });
 
     return sorted;
-  }, [documents, searchQuery, sortCriteria]);
+  }, [allFiles, searchQuery, sortCriteria]);
 
   const getSortLabel = (key: "newest" | "oldest" | "name" | "size") => {
     switch (key) {
-      case "newest": return "Mới nhất";
-      case "oldest": return "Cũ nhất";
-      case "name": return "Tên A-Z";
-      case "size": return "Kích thước";
-      default: return "";
+      case "newest":
+        return "Mới nhất";
+      case "oldest":
+        return "Cũ nhất";
+      case "name":
+        return "Tên A-Z";
+      case "size":
+        return "Kích thước";
+      default:
+        return "";
     }
   };
 
@@ -205,12 +185,12 @@ export default function AlldocumentsUI() {
           </div>
 
           <div className="flex items-center gap-4">
-            {isLoggedIn ? (
+            {isAuthenticated && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-accent">
                   <Avatar className="h-8 w-8">
                     <AvatarFallback>
-                      {currentUser.name
+                      {user.username
                         .split(" ")
                         .map((n) => n[0])
                         .join("")
@@ -219,20 +199,22 @@ export default function AlldocumentsUI() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="hidden flex-col items-start md:flex">
-                    <span>{currentUser.name}</span>
-                    <span className="text-muted-foreground">{currentUser.role}</span>
+                    <span>{user.username}</span>
+                    <span className="text-muted-foreground">{user.role}</span>
                   </div>
                   <ChevronDown className="h-4 w-4" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[240px]">
                   <DropdownMenuLabel>
                     <div className="flex flex-col space-y-1">
-                      <p>{currentUser.name}</p>
-                      <p className="text-muted-foreground">{currentUser.email}</p>
+                      <p>{user.username}</p>
+                      <p className="text-muted-foreground">ID: {user.id}</p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push("/alldocuments")}>
+                  <DropdownMenuItem
+                    onClick={() => router.push("/alldocuments")}
+                  >
                     <UserCircle className="mr-2 h-4 w-4" />
                     Tài khoản
                   </DropdownMenuItem>
@@ -253,51 +235,14 @@ export default function AlldocumentsUI() {
         </header>
 
         <div className="flex flex-1 overflow-hidden">
-          <Sidebar>
-            <SidebarHeader>
-              <div className="flex items-center gap-2 px-4 py-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-                  <FolderOpen className="h-6 w-6 text-primary-foreground" />
-                </div>
-                <div>
-                  <h2>DocManager</h2>
-                  <p className="text-muted-foreground">Quản lý tài liệu</p>
-                </div>
-              </div>
-            </SidebarHeader>
-
-            <SidebarContent>
-              <SidebarGroup>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {navigationItems.map((item) => (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton 
-                            isActive={pathname === item.url} // <--- ĐÃ SỬA: Sử dụng pathname
-                            onClick={() => router.push(item.url)}
-                        >
-                          <item.icon className="h-4 w-4" />
-                          <span>{item.title}</span>
-                          {item.title === "Tất cả tài liệu" && (
-                            <Badge variant="secondary" className="ml-auto">
-                              {documents.length}
-                            </Badge>
-                          )}
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            </SidebarContent>
-          </Sidebar>
-
           <SidebarInset className="flex flex-col">
             {/* Header */}
             <header className="flex items-center justify-between border-b px-6 py-4">
               <div>
                 <h1>Tất cả tài liệu</h1>
-                <p className="text-muted-foreground">{sortedDocuments.length} tài liệu</p>
+                <p className="text-muted-foreground">
+                  {sortedDocuments.length} tài liệu
+                </p>
               </div>
               <Button onClick={() => setUploadOpen(true)}>
                 <Upload className="mr-2 h-4 w-4" />
@@ -316,7 +261,12 @@ export default function AlldocumentsUI() {
                   className="pl-9"
                 />
               </div>
-              <Select value={sortCriteria} onValueChange={(value: "newest" | "oldest" | "name" | "size") => setSortCriteria(value)}>
+              <Select
+                value={sortCriteria}
+                onValueChange={(value: "newest" | "oldest" | "name" | "size") =>
+                  setSortCriteria(value)
+                }
+              >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder={getSortLabel(sortCriteria)} />
                 </SelectTrigger>
@@ -332,18 +282,24 @@ export default function AlldocumentsUI() {
             {/* Main Content: Bỏ chiều cao cố định để scroll table*/}
             <main className="flex-1 overflow-auto p-6">
               <DocumentsTable
-                documents={sortedDocuments} 
+                documents={sortedDocuments}
                 onDelete={handleDelete}
-                onDownload={handleDownload}
-                currentUser={currentUser} 
-                onEditInfo={handleEditInfo} 
+                onDownload={async (id: string) => {
+                  await handleDownload(id);
+                }}
+                currentUser={user!}
+                onEditInfo={handleEditInfo}
               />
             </main>
           </SidebarInset>
         </div>
       </div>
 
-      <UploadDialog open={uploadOpen} onOpenChange={setUploadOpen} onUpload={handleUpload} />
+      <UploadDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        onUpload={handleUpload}
+      />
     </SidebarProvider>
   );
 }

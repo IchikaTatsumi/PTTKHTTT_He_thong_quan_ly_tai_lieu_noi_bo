@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 46, "column": 0}, "map": {"version":3,"sources":["file:///home/gianghp/projects/pttkht/PTTKHTTT_He_thong_quan_ly_tai_lieu_noi_bo/src/proxy.ts"],"sourcesContent":["import { NextResponse, NextRequest } from 'next/server';\n\nexport default function middleware(request: NextRequest) {\n  // Logic xử lý Middleware của bạn\n  \n  // Ví dụ: Kiểm tra đường dẫn và chuyển hướng\n  /*\n  if (request.nextUrl.pathname === '/') {\n    return NextResponse.redirect(new URL('/alldocuments', request.url));\n  }\n  */\n  \n  return NextResponse.next();\n}"],"names":[],"mappings":";;;;AAAA;;AAEe,SAAS,WAAW,OAAoB;IACrD,iCAAiC;IAEjC,4CAA4C;IAC5C;;;;EAIA,GAEA,OAAO,qMAAY,CAAC,IAAI;AAC1B","debugId":null}}]
-}

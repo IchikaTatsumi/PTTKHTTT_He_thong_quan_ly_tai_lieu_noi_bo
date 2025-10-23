@@ -15,14 +15,15 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { useRouter } from "next/navigation";
-import { authController } from "../../lib/api/authController";
-import { LoginPayload, RegisterPayload } from "../../lib/api/authController";
+import { useAuth } from "../../features/auth";
+import { LoginDTO, RegisterDTO } from "../../features/auth";
 
 type AuthType = "login" | "register";
 type DialogState = "loading" | "success" | "error" | null;
 
 export default function LoginUI() {
   const router = useRouter();
+  const { login } = useAuth();
   const [authType, setAuthType] = useState<AuthType>("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -39,24 +40,28 @@ export default function LoginUI() {
 
     try {
       if (isLogin) {
-        const payload: LoginPayload = { username, password };
-        // Giả lập call API (sẽ bị thay thế bằng call thật)
-        await authController.login(payload); 
+        const credentials: LoginDTO = { username, password };
+        const response = await login(credentials);
         
+        if (!response.success) {
+          throw new Error(response.message || 'Login failed');
+        }
       } else {
         if (!email) {
           throw new Error("Email là bắt buộc.");
         }
-        const payload: RegisterPayload = { username, email, password };
-        // Giả lập call API (sẽ bị thay thế bằng call thật)
-        await authController.register(payload);
+        // Registration is not typically handled through auth service in this implementation
+        // You may want to add this to the userService as admin-only functionality
+        const userData: RegisterDTO = { username, password };
+        // For now, we only support login in this UI
+        throw new Error("Registration is not available through this interface");
       }
 
       // Success
       setDialogState("success");
       setTimeout(() => {
         setDialogState(null);
-        router.push("/alldocuments"); // Chuyển hướng sau khi thành công
+        router.push("/"); // Chuyển hướng sau khi thành công
       }, 1500);
 
     } catch (error) {
@@ -65,9 +70,14 @@ export default function LoginUI() {
       setDialogState("error");
       setTimeout(() => setDialogState(null), 3000); // Tự đóng sau 3s
     } finally {
-      setUsername("");
-      setEmail("");
-      setPassword("");
+      if (isLogin) {
+        setUsername("");
+        setPassword("");
+      } else {
+        setUsername("");
+        setEmail("");
+        setPassword("");
+      }
     }
   };
 

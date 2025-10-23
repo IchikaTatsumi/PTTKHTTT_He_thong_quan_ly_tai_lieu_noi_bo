@@ -1,26 +1,31 @@
-// src/app/page.tsx
 "use client";
 
-import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-
-// MOCK: Giả định trạng thái đăng nhập
-const isLoggedIn = false; 
+import { useEffect } from "react";
+import AlldocumentsUI from "../components/alldocuments/AlldocumentsUI";
+import { useAuth } from "../features/auth";
 
 export default function HomePage() {
   const router = useRouter();
+  const { isAuthenticated, loading } = useAuth();
 
   useEffect(() => {
-    if (isLoggedIn) {
-      router.push("/alldocuments");
-    } else {
-      router.push("/login"); 
+    if (!loading && !isAuthenticated) {
+      router.push("/login");
     }
-  }, [router]);
+  }, [router, isAuthenticated, loading]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p>Đang kiểm tra phiên đăng nhập...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen items-center justify-center">
-      <p className="text-muted-foreground">Đang tải...</p>
+      <AlldocumentsUI />
     </div>
   );
 }
