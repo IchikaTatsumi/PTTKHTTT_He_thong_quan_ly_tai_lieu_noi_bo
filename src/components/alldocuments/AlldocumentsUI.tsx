@@ -169,6 +169,12 @@ export default function AlldocumentsUI() {
     }
   };
 
+  if (loading) return <div>Loading...</div>
+  if (!loading && !user) {
+    router.push("/login");
+    return;
+  }
+
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full flex-col">
