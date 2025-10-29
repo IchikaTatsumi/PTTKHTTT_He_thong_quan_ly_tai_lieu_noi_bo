@@ -86,13 +86,13 @@ export function DocumentsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[40px]"></TableHead>
+              <TableHead className="w-10"></TableHead>
               <TableHead>Tên tài liệu</TableHead>
               <TableHead>Kích thước</TableHead>
               <TableHead>Người tải lên</TableHead>
               <TableHead>Quyền</TableHead>
               <TableHead>Ngày tải lên</TableHead>
-              <TableHead className="w-[80px]"></TableHead>
+              <TableHead className="w-20"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

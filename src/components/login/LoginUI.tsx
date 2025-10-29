@@ -1,4 +1,3 @@
-// src/components/login/LoginUI.tsx
 "use client";
 
 import { useState } from "react";
@@ -47,17 +46,16 @@ export default function LoginUI() {
           throw new Error(response.message || 'Login failed');
         }
       } else {
-        if (!email) {
-          throw new Error("Email là bắt buộc.");
-        }
-        // Registration is not typically handled through auth service in this implementation
-        // You may want to add this to the userService as admin-only functionality
+        // --- Đã SỬA: Bỏ chặn lỗi và thay bằng logic console.log ---
         const userData: RegisterDTO = { username, password };
-        // For now, we only support login in this UI
-        throw new Error("Registration is not available through this interface");
+        
+        // Log dữ liệu ra console theo yêu cầu
+        console.log("Registration Data to be sent:", userData);
+        
+        // Giả lập thành công để hiển thị thông báo UI và chuyển hướng
       }
 
-      // Success
+      // Success (Cho cả Login thành công và Register đã log data)
       setDialogState("success");
       setTimeout(() => {
         setDialogState(null);
@@ -75,7 +73,7 @@ export default function LoginUI() {
         setPassword("");
       } else {
         setUsername("");
-        setEmail("");
+        // setEmail(""); // Đã xóa ở lần sửa trước
         setPassword("");
       }
     }
@@ -114,24 +112,7 @@ export default function LoginUI() {
               </div>
             </div>
 
-            {/* Email (Chỉ cho Đăng ký) */}
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="example@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-            )}
+            {/* Email (Chỉ cho Đăng ký) --- ĐÃ BỊ XÓA Ở LẦN SỬA TRƯỚC --- */}
             
             {/* Password */}
             <div className="space-y-2">
@@ -212,7 +193,9 @@ export default function LoginUI() {
             </div>
             <AlertDialogTitle className="text-center">Thành công!</AlertDialogTitle>
             <AlertDialogDescription className="text-center">
-              {isLogin ? "Đăng nhập thành công. Đang chuyển hướng..." : "Đăng ký thành công. Đang chuyển hướng..."}
+              {isLogin 
+                ? "Đăng nhập thành công. Đang chuyển hướng..." 
+                : "Dữ liệu đăng ký đã được ghi vào console. Đang chuyển hướng..."}
             </AlertDialogDescription>
           </AlertDialogHeader>
         </AlertDialogContent>
