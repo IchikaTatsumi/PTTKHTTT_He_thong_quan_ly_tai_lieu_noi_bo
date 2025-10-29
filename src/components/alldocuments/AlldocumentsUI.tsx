@@ -1,3 +1,4 @@
+// src/components/alldocuments/AlldocumentsUI.tsx
 "use client";
 
 import {
@@ -20,7 +21,6 @@ import { Role } from "../../lib/constants/enums";
 import { parseDate } from "../../lib/utils";
 import { DocumentsTable } from "../DocumentsTable";
 import { UploadDialog } from "../UploadDialog";
-// ĐÃ SỬA: Import CreateUserDialog từ đường dẫn mới
 import CreateUserDialog from "../CreateUserDialog"; 
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Button } from "../ui/button";
@@ -54,6 +54,12 @@ export const downloadFileClient = (data: Blob, filename: string) => {
   window.URL.revokeObjectURL(url);
 };
 
+const unaccent = (str: string): string => {
+  if (!str) return '';
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+};
+
+
 export default function AlldocumentsUI() {
   const router = useRouter();
   const pathname = usePathname();
@@ -69,11 +75,8 @@ export default function AlldocumentsUI() {
   const [createUserOpen, setCreateUserOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   
-  // =========================================================================
-  // KHỐI HANDLER FUNCTIONS
-  // =========================================================================
-
   const handleUpload = async (file: File) => {
+    // Note: Logic đổi tên file đã được chuyển vào UploadDialog
     const formData = new FormData();
     formData.append("file", file);
     const response = await uploadFile(formData);
@@ -110,7 +113,7 @@ export default function AlldocumentsUI() {
 
   const handleLogout = () => {
     logout(); 
-    router.push("/login"); // ✅ CHUYỂN HƯỚNG VỀ /login
+    router.push("/login"); 
   };
 
   const getSortLabel = (key: "newest" | "oldest" | "name" | "size") => {
@@ -128,10 +131,6 @@ export default function AlldocumentsUI() {
     }
   };
   
-  // =========================================================================
-  // LOGIC MEMOIZED
-  // =========================================================================
-
   // Logic tạo navigation items (Giữ nguyên)
   const navigationItems = useMemo(() => {
     return [...baseNavigationItems];
@@ -139,20 +138,19 @@ export default function AlldocumentsUI() {
 
   // Logic lọc và sắp xếp (Đã đơn giản hóa)
   const filteredDocuments = useMemo(() => {
-    const filtered = allFiles.filter((doc) =>
-      doc.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Áp dụng unaccent cho truy vấn tìm kiếm
+    const normalizedQuery = unaccent(searchQuery.toLowerCase());
+
+    const filtered = allFiles.filter((doc) => {
+      // Áp dụng unaccent cho tên tài liệu trước khi so sánh
+      const normalizedName = unaccent(doc.name.toLowerCase());
+      return normalizedName.includes(normalizedQuery);
+    });
 
     // Sắp xếp cố định theo Mới nhất (Newest)
     const sorted = [...filtered].sort((a, b) => {
-      return (
-          parseDate(
-            new Date(b.createdAt).toLocaleDateString("vi-VN")
-          ).getTime() -
-          parseDate(
-            new Date(a.createdAt).toLocaleDateString("vi-VN")
-          ).getTime()
-      );
+      // Sử dụng Date.parse an toàn hơn cho các chuỗi ISO từ backend
+      return Date.parse(b.createdAt) - Date.parse(a.createdAt);
     });
 
     return sorted;
@@ -310,6 +308,8 @@ export default function AlldocumentsUI() {
         open={uploadOpen}
         onOpenChange={setUploadOpen}
         onUpload={handleUpload}
+        // Truyền danh sách tên file hiện có để xử lý trùng lặp
+        existingFileNames={allFiles.map(file => file.name)} 
       />
       
       {/* RENDER DIALOG POPUP CHO ADMIN */}

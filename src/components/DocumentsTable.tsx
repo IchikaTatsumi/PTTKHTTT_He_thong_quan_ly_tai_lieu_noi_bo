@@ -21,12 +21,13 @@ import {
   TableHeader,
   TableRow,
 } from "./ui/table";
+import { formatBytes } from "../lib/utils"; 
 
 interface DocumentsTableProps {
   documents: FileDTO[];
+  currentUser: UserDTO;
   onDelete: (id: string) => void;
   onDownload: (id: string) => void | Promise<void>;
-  currentUser: UserDTO;
   onEditInfo: (doc: FileDTO) => void;
 }
 
@@ -39,11 +40,62 @@ export function DocumentsTable({
 }: DocumentsTableProps) {
   const [selectedDoc, setSelectedDoc] = useState<FileDTO | null>(null);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
+  
+  // Hàm helper để định dạng DateTime, BẮT BUỘC sử dụng múi giờ Việt Nam
+  const formatDate = (isoString: string): string => {
+    if (!isoString) return '';
+    try {
+      // 1. Tạo đối tượng Date.
+      const date = new Date(isoString); 
+      
+      // 2. Kiểm tra tính hợp lệ
+      if (isNaN(date.getTime())) {
+          return isoString;
+      }
+      
+      // 3. Định dạng ngày giờ theo chuẩn Việt Nam: dd/MM/yyyy HH:mm:ss 
+      // SỬ DỤNG PHƯƠNG PHÁP HIỂN THỊ CHUỖI VÀ ÉP MÚI GIỜ
+      
+      const options: Intl.DateTimeFormatOptions = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: 'Asia/Ho_Chi_Minh', // Buộc hiển thị theo múi giờ Việt Nam (GMT+7)
+        hour12: false, // Đảm bảo định dạng 24h
+      };
+
+      // Định dạng thành chuỗi 'HH:mm:ss, dd/MM/yyyy'
+      const formattedDate = new Intl.DateTimeFormat('vi-VN', options).format(date);
+      
+      // Định dạng 'vi-VN' với tùy chọn này thường trả về định dạng "HH:mm:ss, dd/MM/yyyy"
+      // Ta cần tách chuỗi và chuyển sang định dạng mong muốn 'HH:mm:ss dd/MM/yyyy'
+      
+      const parts = formattedDate.split(/[ ,]+/);
+      if (parts.length >= 2) {
+        // parts[0] = HH:mm:ss, parts[1] = dd/MM/yyyy
+        return `${parts[0]} ${parts[1]}`;
+      }
+
+      return formattedDate;
+
+    } catch (e) {
+      // Trả về chuỗi gốc nếu có lỗi format
+      return isoString; 
+    }
+  };
+
+
   // Logic kiểm tra quyền: Owner, Admin, hoặc Manager có quyền cao
   const checkPermission = (
     doc: FileDTO,
     permission: "view" | "delete" | "share"
   ): boolean => {
+    // Sửa lỗi: Trả về false ngay lập tức nếu currentUser là null (trong quá trình logout)
+    if (!currentUser) return false;
+
     // Logic mặc định: Giả định nếu tài liệu hiển thị, người dùng có quyền View (Đọc/Tải xuống)
     if (permission === "view") {
       return true; // Luôn cho phép Xem/Tải xuống nếu tài liệu có trong danh sách
@@ -51,18 +103,28 @@ export function DocumentsTable({
 
     const userRole = currentUser.role.toLowerCase();
 
-    const isOwner = doc.owner?.username === currentUser.username;
+    const isOwner = doc.owner?.id === currentUser.id;
 
-    // Admin, Owner, VÀ Manager có quyền cao cho delete/share
+    // Kiểm tra xem user hiện tại có quyền MANAGE trong mảng permissions của file không.
+    // Mảng doc.permissions chỉ chứa quyền của người dùng hiện tại đối với file này (không có trường user).
+    const hasManagePermission = doc.permissions.some(
+      // Loại bỏ lỗi 'Parameter 'p' implicitly has an 'any' type' (ts(7006))
+      (p: { permissionLevel: PermissionLevel }) => p.permissionLevel === PermissionLevel.MANAGE
+    );
+
+    // Admin, Owner, VÀ người có quyền MANAGE trên tài liệu này
     const isManagerOrHigher =
-      userRole === "owner" || userRole === "admin" || userRole === "manager";
+      userRole === Role.Admin.toLowerCase() || 
+      isOwner || 
+      hasManagePermission;
+
 
     if (isOwner) return true; // Owner có tất cả quyền
 
     switch (permission) {
       case "delete":
       case "share":
-        // Owner, Admin, VÀ Manager có quyền delete/share
+        // Owner, Admin, VÀ người có quyền MANAGE có quyền delete/share
         return isManagerOrHigher;
       default:
         return false;
@@ -98,7 +160,8 @@ export function DocumentsTable({
           <TableBody>
             {documents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
+                {/* Đã sửa ColSpan thành 7 (4 cột + 3 cột không hiển thị width) */}
+                <TableCell colSpan={7} className="text-center py-8">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <FileText className="h-12 w-12" />
                     <p>Chưa có tài liệu nào</p>
@@ -119,21 +182,25 @@ export function DocumentsTable({
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell>{doc.size}</TableCell>
+                  {/* Áp dụng formatBytes */}
+                  <TableCell>{formatBytes(doc.size)}</TableCell>
                   <TableCell>{doc.owner?.username}</TableCell>
                   <TableCell>
+                    {/* Đã thêm component Badge nếu cần, nhưng giữ nguyên cấu trúc span */}
                     <span
                       className={`px-2 py-1 text-xs font-semibold rounded ${
-                        doc.permissions[0].permissionLevel ===
+                        doc.permissions[0]?.permissionLevel ===
                         PermissionLevel.VIEW
                           ? "bg-green-100 text-green-800"
                           : "bg-blue-100 text-blue-800"
                       }`}
                     >
-                      {PermissionLevel[doc.permissions[0].permissionLevel]}
+                      {/* Xử lý trường hợp permissions rỗng hoặc không có phần tử đầu tiên */}
+                      {doc.permissions[0]?.permissionLevel ? PermissionLevel[doc.permissions[0].permissionLevel] : "Không có"}
                     </span>
                   </TableCell>
-                  <TableCell>{doc.createdAt}</TableCell>
+                  {/* Áp dụng formatDate đã sửa */}
+                  <TableCell>{formatDate(doc.createdAt)}</TableCell>
 
                   <TableCell>
                     <DropdownMenu>

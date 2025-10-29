@@ -1,7 +1,8 @@
+// src/components/login/LoginUI.tsx
 "use client";
 
 import { useState } from "react";
-import { Loader2, User, Mail, Lock, LogIn, UserPlus } from "lucide-react";
+import { Loader2, User, Lock, LogIn } from "lucide-react"; 
 import {
   AlertDialog,
   AlertDialogContent,
@@ -15,22 +16,21 @@ import { Label } from "../ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../features/auth";
-import { LoginDTO, RegisterDTO } from "../../features/auth";
+import { LoginDTO } from "../../features/auth"; 
+// Đã loại bỏ các imports và types liên quan đến RegisterDTO/AuthType
 
-type AuthType = "login" | "register";
 type DialogState = "loading" | "success" | "error" | null;
 
 export default function LoginUI() {
   const router = useRouter();
   const { login } = useAuth();
-  const [authType, setAuthType] = useState<AuthType>("login");
+  // Đã loại bỏ [authType] và [email]
   const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [dialogState, setDialogState] = useState<DialogState>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const isLogin = authType === "login";
+  const getTitle = "Đăng nhập";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,28 +38,19 @@ export default function LoginUI() {
     setErrorMessage("");
 
     try {
-      if (isLogin) {
-        const credentials: LoginDTO = { username, password };
-        const response = await login(credentials);
+      // Chỉ còn Logic Đăng nhập (giả định isLogin = true)
+      const credentials: LoginDTO = { username, password };
+      const response = await login(credentials);
         
-        if (!response.success) {
-          throw new Error(response.message || 'Login failed');
-        }
-      } else {
-        // --- Đã SỬA: Bỏ chặn lỗi và thay bằng logic console.log ---
-        const userData: RegisterDTO = { username, password };
-        
-        // Log dữ liệu ra console theo yêu cầu
-        console.log("Registration Data to be sent:", userData);
-        
-        // Giả lập thành công để hiển thị thông báo UI và chuyển hướng
+      if (!response.success) {
+        throw new Error(response.message || 'Login failed');
       }
 
-      // Success (Cho cả Login thành công và Register đã log data)
+      // Success
       setDialogState("success");
       setTimeout(() => {
         setDialogState(null);
-        router.push("/"); // Chuyển hướng sau khi thành công
+        router.push("/"); // Chuyển hướng tới /alldocuments (đã sửa ở page.tsx)
       }, 1500);
 
     } catch (error) {
@@ -68,18 +59,11 @@ export default function LoginUI() {
       setDialogState("error");
       setTimeout(() => setDialogState(null), 3000); // Tự đóng sau 3s
     } finally {
-      if (isLogin) {
-        setUsername("");
-        setPassword("");
-      } else {
-        setUsername("");
-        // setEmail(""); // Đã xóa ở lần sửa trước
-        setPassword("");
-      }
+      // Reset fields
+      setUsername("");
+      setPassword("");
     }
   };
-
-  const getTitle = isLogin ? "Đăng nhập" : "Đăng ký";
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-gray-50">
@@ -87,9 +71,7 @@ export default function LoginUI() {
         <CardHeader>
           <CardTitle className="text-center">{getTitle} vào DocManager</CardTitle>
           <CardDescription className="text-center">
-            {isLogin 
-              ? "Sử dụng tên đăng nhập và mật khẩu của bạn." 
-              : "Tạo tài khoản mới để bắt đầu quản lý tài liệu. (Role mặc định: User)"}
+            Sử dụng tên đăng nhập và mật khẩu của bạn.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -112,8 +94,6 @@ export default function LoginUI() {
               </div>
             </div>
 
-            {/* Email (Chỉ cho Đăng ký) --- ĐÃ BỊ XÓA Ở LẦN SỬA TRƯỚC --- */}
-            
             {/* Password */}
             <div className="space-y-2">
               <Label htmlFor="password">Mật khẩu</Label>
@@ -143,34 +123,21 @@ export default function LoginUI() {
                 </>
               ) : (
                 <>
-                  {isLogin ? <LogIn className="mr-2 size-4" /> : <UserPlus className="mr-2 size-4" />}
+                  <LogIn className="mr-2 size-4" />
                   {getTitle}
                 </>
               )}
             </Button>
           </form>
           
+          {/* ĐÃ LOẠI BỎ: Khối chuyển đổi Đăng ký / Dòng "Chưa có tài khoản?" */}
           <div className="mt-4 text-center text-sm">
-            {isLogin ? (
-              <p>
-                Chưa có tài khoản?{" "}
-                <Button variant="link" type="button" onClick={() => setAuthType("register")} className="p-0 h-auto text-primary">
-                  Đăng ký ngay
-                </Button>
-              </p>
-            ) : (
-              <p>
-                Đã có tài khoản?{" "}
-                <Button variant="link" type="button" onClick={() => setAuthType("login")} className="p-0 h-auto text-primary">
-                  Đăng nhập
-                </Button>
-              </p>
-            )}
+            <p className="text-muted-foreground"></p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Alert Dialogs */}
+      {/* Alert Dialogs (Giữ nguyên) */}
       <AlertDialog open={dialogState === "loading"}>
         <AlertDialogContent className="sm:max-w-sm">
           <AlertDialogHeader>
@@ -193,9 +160,7 @@ export default function LoginUI() {
             </div>
             <AlertDialogTitle className="text-center">Thành công!</AlertDialogTitle>
             <AlertDialogDescription className="text-center">
-              {isLogin 
-                ? "Đăng nhập thành công. Đang chuyển hướng..." 
-                : "Dữ liệu đăng ký đã được ghi vào console. Đang chuyển hướng..."}
+              Đăng nhập thành công. Đang chuyển hướng...
             </AlertDialogDescription>
           </AlertDialogHeader>
         </AlertDialogContent>
