@@ -23,6 +23,10 @@ export default function HomePage() {
     );
   }
 
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <div className="flex h-screen items-center justify-center">
       <AlldocumentsUI />

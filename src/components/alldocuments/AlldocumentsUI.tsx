@@ -1,4 +1,3 @@
-// src/components/alldocuments/AlldocumentsUI.tsx
 "use client";
 
 import {
@@ -13,7 +12,7 @@ import {
   UserPlus, 
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../features/auth";
 import { FileDTO, useFileMutations, useFiles } from "../../features/files";
 import { fileService } from "../../features/files/services/file.service";
@@ -115,22 +114,6 @@ export default function AlldocumentsUI() {
     logout(); 
     router.push("/login"); 
   };
-
-  const getSortLabel = (key: "newest" | "oldest" | "name" | "size") => {
-    switch (key) {
-      case "newest":
-        return "Mới nhất";
-      case "oldest":
-        return "Cũ nhất";
-      case "name":
-        return "Tên A-Z";
-      case "size":
-        return "Kích thước";
-      default:
-        return "";
-    }
-  };
-  
   // Logic tạo navigation items (Giữ nguyên)
   const navigationItems = useMemo(() => {
     return [...baseNavigationItems];
@@ -215,10 +198,12 @@ export default function AlldocumentsUI() {
   }, [filteredDocuments, searchQuery, user, handleDelete, handleDownload, handleEditInfo, setUploadOpen, setCreateUserOpen]); 
 
   if (loading) return <div>Loading...</div>
-  if (!loading && !user) {
-    router.push("/login");
-    return;
-  }
+
+  useEffect(() => {
+    if (!user) {
+      router.push("/login"); 
+    }
+  }, [user, router]);
 
   return (
     <SidebarProvider>
